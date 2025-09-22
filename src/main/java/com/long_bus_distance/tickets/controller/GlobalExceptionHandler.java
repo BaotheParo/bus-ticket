@@ -1,6 +1,9 @@
 package com.long_bus_distance.tickets.controller;
 
 import com.long_bus_distance.tickets.dto.ErrorDto;
+import com.long_bus_distance.tickets.exception.TicketTypeNotFoundException;
+import com.long_bus_distance.tickets.exception.TripNotFoundException;
+import com.long_bus_distance.tickets.exception.TripUpdateException;
 import com.long_bus_distance.tickets.exception.UserNotFoundException;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
@@ -52,6 +55,7 @@ public class GlobalExceptionHandler {
         ErrorDto errorDto = new ErrorDto((errorMessage));
         return new ResponseEntity<>(errorDto, HttpStatus.BAD_REQUEST);
     }
+
     //Xử lý ngoại lệ khi không tìm thấy người dùng.
     //@param ex ngoại lệ UserNotFoundException
     //@return phản hồi với mã trạng thái 400 (Bad Request)
@@ -60,5 +64,35 @@ public class GlobalExceptionHandler {
         log.error("User not found", ex);
         ErrorDto errorDto = new ErrorDto("User not found");
         return new ResponseEntity<>(errorDto,HttpStatus.BAD_REQUEST);
+    }
+
+    // Xử lý ngoại lệ khi không tìm thấy người dùng
+    // @param ex Ngoại lệ UserNotFoundException
+    // @return phản hồi với mã trạng thái 400 (Bad Request)
+    @ExceptionHandler(TripNotFoundException.class)
+    public ResponseEntity<ErrorDto> handleTripNotFoundException(TripNotFoundException ex) {
+        log.error("Trip not found", ex);
+        ErrorDto errorDto = new ErrorDto(ex.getMessage());
+        return new ResponseEntity<>(errorDto, HttpStatus.BAD_REQUEST);
+    }
+
+    // Xử lý ngoại lệ khi không tìm thấy chuyến xe
+    // @param ex ngoại lệ TripNotFoundException
+    // @return phản hồi với mã trạng thái 400 (Bad Request)
+    @ExceptionHandler(TicketTypeNotFoundException.class)
+    public ResponseEntity<ErrorDto> handleTicketTypeNotFoundException(TicketTypeNotFoundException ex) {
+        log.error("Ticket type not found", ex);
+        ErrorDto errorDto = new ErrorDto(ex.getMessage());
+        return new ResponseEntity<>(errorDto, HttpStatus.BAD_REQUEST);
+    }
+
+//  Xử lí ngoại lệ liên quan đến UPDATE chuyến xe
+//  @param ex ngoại lệ TripUpdateException
+//  @return phản hồi với mã trạng thái 400 (Bad Request)
+    @ExceptionHandler(TripUpdateException.class)
+    public ResponseEntity<ErrorDto> handleTripUpdateException(TripUpdateException ex) {
+        log.error("Trip update error", ex);
+        ErrorDto errorDto = new ErrorDto(ex.getMessage());
+        return new ResponseEntity<>(errorDto, HttpStatus.BAD_REQUEST);
     }
 }

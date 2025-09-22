@@ -81,7 +81,7 @@ public class Trip {
     @ManyToMany(mappedBy = "staffingTrips")
     private List<User> staff; //Nhan vien xe bus
 
-    @OneToMany(mappedBy = "trip",cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "trip",cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TicketType> ticketTypes = new ArrayList<>();
 
     @Override

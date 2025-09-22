@@ -11,25 +11,28 @@ import org.springframework.security.web.authentication.www.BasicAuthenticationFi
 
 @Configuration
 public class SecurityConfig {
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
-                                           UserProvisioningFilter userProvisioningFilter) throws Exception{
+                                           UserProvisioningFilter userProvisioningFilter) throws Exception {
         http
                 .authorizeHttpRequests(authorize -> authorize
-                .anyRequest().authenticated()) //dam bao tat cac yeu cu HTTP deu phai xac thuc
-                //vo hieu hoa co de Cross-Site Request Forgery cho trien khai REST API
-                .csrf(csrf -> csrf.disable())
-                //vi thiet ke REST API nen STATELESS
-                .sessionManagement((session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                        // Cho phép truy cập công khai vào điểm cuối GET /api/v1/published-trips
+                        .requestMatchers("GET", "/api/v1/published-trips/**").permitAll()
+                        .anyRequest().authenticated() // Đảm bảo tất cả yêu cầu HTTP đều phải xác thực
                 )
-                //Xac thuc bang OAuth2 va JWT
+                // Vô hiệu hóa cơ chế Cross-Site Request Forgery cho triển khai REST API
+                .csrf(csrf -> csrf.disable())
+                // Vì thiết kế REST API nên STATELESS
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+                // Xác thực bằng OAuth2 và JWT
                 .oauth2ResourceServer(oauth2 ->
-                        oauth2.jwt(
-                                Customizer.withDefaults()
-                        ))
-                //Dam bao bo loc thuc thi sau Bearer, doi tuong xac thuc da co mat va ng dung duoc xac thuc
-                // =>Cho phep bo loc truy cap JWT
+                        oauth2.jwt(Customizer.withDefaults())
+                )
+                // Đảm bảo bộ lọc thực thi sau Bearer, đối tượng xác thực đã có mặt và người dùng được xác thực
+                // => Cho phép bộ lọc truy cập JWT
                 .addFilterAfter(userProvisioningFilter, BasicAuthenticationFilter.class);
 
         return http.build();
