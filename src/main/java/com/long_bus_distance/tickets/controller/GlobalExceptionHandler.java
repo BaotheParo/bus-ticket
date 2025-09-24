@@ -1,10 +1,7 @@
 package com.long_bus_distance.tickets.controller;
 
 import com.long_bus_distance.tickets.dto.ErrorDto;
-import com.long_bus_distance.tickets.exception.TicketTypeNotFoundException;
-import com.long_bus_distance.tickets.exception.TripNotFoundException;
-import com.long_bus_distance.tickets.exception.TripUpdateException;
-import com.long_bus_distance.tickets.exception.UserNotFoundException;
+import com.long_bus_distance.tickets.exception.*;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -92,6 +89,36 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(TripUpdateException.class)
     public ResponseEntity<ErrorDto> handleTripUpdateException(TripUpdateException ex) {
         log.error("Trip update error", ex);
+        ErrorDto errorDto = new ErrorDto(ex.getMessage());
+        return new ResponseEntity<>(errorDto, HttpStatus.BAD_REQUEST);
+    }
+
+    //  Xử lí ngoại lệ liên quan đến tao QRCode
+    //  @param ex ngoại lệ QRCodeGenerationException
+    //  @return phản hồi với mã trạng thái 400 (Bad Request)
+    @ExceptionHandler(QRCodeGenerationException.class)
+    public ResponseEntity<ErrorDto> handleQRCodeGenerationException(QRCodeGenerationException ex) {
+        log.error("QR code generation error", ex);
+        ErrorDto errorDto = new ErrorDto(ex.getMessage());
+        return new ResponseEntity<>(errorDto, HttpStatus.BAD_REQUEST);
+    }
+
+    //  Xử lí ngoại lệ liên quan đến QRCode khong tim thay
+    //  @param ex ngoại lệ QRCodeNotFoundException
+    //  @return phản hồi với mã trạng thái 400 (Bad Request)
+    @ExceptionHandler(QRCodeNotFoundException.class)
+    public ResponseEntity<ErrorDto> handleQRCodeNotFoundException(QRCodeNotFoundException ex) {
+        log.error("QR code not found", ex);
+        ErrorDto errorDto = new ErrorDto(ex.getMessage());
+        return new ResponseEntity<>(errorDto, HttpStatus.BAD_REQUEST);
+    }
+
+    //  Xử lí ngoại lệ liên quan đến QRCode khong tim thay
+    //  @param ex ngoại lệ QRCodeNotFoundException
+    //  @return phản hồi với mã trạng thái 400 (Bad Request)
+    @ExceptionHandler(TicketSoldOutException.class)
+    public ResponseEntity<ErrorDto> handleTicketSoldOutException(TicketSoldOutException ex) {
+        log.error("Ticket sold out", ex);
         ErrorDto errorDto = new ErrorDto(ex.getMessage());
         return new ResponseEntity<>(errorDto, HttpStatus.BAD_REQUEST);
     }

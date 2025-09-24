@@ -26,7 +26,8 @@ public class QRCode {
     @Column(name = "status", nullable = false)
     private QRCodeStatusEnum status;
 
-    @Column(name = "value", nullable = false)
+    //Lưu trữ hình ảnh QR được mã hóa Base64 dưới dạng text
+    @Column(name = "value", columnDefinition = "TEXT")
     private String value; // code se duoc tao dua tren cac thuoc tinh (cho ngoi , xe , vv...)
 
     // Audit fields
