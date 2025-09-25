@@ -120,5 +120,4 @@ public class TripController {
         // Trả về phản hồi HTTP 204 (No Content)
         return ResponseEntity.noContent().build();
     }
-
 }
