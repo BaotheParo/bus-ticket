@@ -30,6 +30,10 @@ public class TicketValidation {
     @Column(name= "validation_method",nullable = false)
     private TicketValidationMethodEnum validationMethod;
 
+    @CreatedDate
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime validationTime;
+
     // Audit fields
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

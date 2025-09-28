@@ -17,6 +17,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         // Cho phép truy cập công khai vào điểm cuối GET /api/v1/published-trips
                         .requestMatchers("GET", "/api/v1/published-trips/**").permitAll()
+                        // Chỉ cho phép STAFF mới xác thực vé
+                        .requestMatchers("/api/v1/ticket-validations/**").hasRole("STAFF")
                         // Chỉ cho phép OPERATOR mới truy cập quản lý chuyến xe
                         .requestMatchers("/api/v1/trips/**").hasRole("OPERATOR")
                         .anyRequest().authenticated() // Đảm bảo tất cả yêu cầu HTTP đều phải xác thực

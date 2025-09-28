@@ -4,13 +4,15 @@ import com.long_bus_distance.tickets.dto.GetTicketResponseDto;
 import com.long_bus_distance.tickets.dto.ListTicketResponseDto;
 import com.long_bus_distance.tickets.entity.Ticket;
 import com.long_bus_distance.tickets.mapper.TicketMapper;
+import com.long_bus_distance.tickets.services.QRCodeService;
 import com.long_bus_distance.tickets.services.TicketService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,6 +30,7 @@ import java.util.UUID;
 public class TicketController {
     private final TicketService ticketService;
     private final TicketMapper ticketMapper;
+    private final QRCodeService qrCodeService;
 
     //Liệt kê toàn bộ vé cho user đã xác thực
     @GetMapping
@@ -57,4 +60,22 @@ public class TicketController {
                 .orElseGet(()->ResponseEntity.notFound().build());
     }
 
+    //Lấy hình QR của một vé cụ thể
+    @GetMapping("/{ticketId}/qrcodes")
+    public ResponseEntity<byte[]> getTicketQRCode (@PathVariable UUID ticketId,
+                                                   JwtAuthenticationToken authenticationToken){
+        log.info("Received GET request for QR code of ticket ID: {}", ticketId);
+        //Trích user ID từ JWT
+        Jwt jwt = (Jwt) authenticationToken.getPrincipal();
+        UUID userId = UUID.fromString(jwt.getSubject());
+        //Gọi service để lấy hình QR
+        byte[]qrCodeImage = qrCodeService.getQRCodeImageForUserAndTicket(userId,ticketId);
+        //Đặt HTTP header cho phản hồi hình ảnh
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.IMAGE_PNG);
+        headers.setContentLength(qrCodeImage.length);
+        //Trả về phản hồi
+        return ResponseEntity.ok().headers(headers)
+                .body(qrCodeImage);
+    }
 }

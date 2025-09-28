@@ -9,6 +9,7 @@ import com.long_bus_distance.tickets.entity.QRCode;
 import com.long_bus_distance.tickets.entity.QRCodeStatusEnum;
 import com.long_bus_distance.tickets.entity.Ticket;
 import com.long_bus_distance.tickets.exception.QRCodeGenerationException;
+import com.long_bus_distance.tickets.exception.QRCodeNotFoundException;
 import com.long_bus_distance.tickets.repository.QRCodeRepository;
 import com.long_bus_distance.tickets.services.QRCodeService;
 import lombok.RequiredArgsConstructor;
@@ -56,6 +57,23 @@ public class QRCodeServiceImpl implements QRCodeService{
             throw new QRCodeGenerationException("Error generating QR code", e);
         }
     }
+
+    @Override
+    public byte[] getQRCodeImageForUserAndTicket(UUID userId, UUID ticketId) {
+        log.info("Retrieving QR code for ticket ID: {} and user ID: {}", ticketId, userId);
+        //Tìm ma QR bằng ID vé và ID ng mua
+        QRCode qrCode =qrCodeRepository.findByTicketIdAndTicketPurchaserId(ticketId,userId)
+                .orElseThrow(()-> new QRCodeNotFoundException("QR code not found for ticket ID: "+ ticketId));
+        try{
+            //Decode Base64 của mã QR vào mảng byte
+            return Base64.getDecoder().decode(qrCode.getValue());
+        }catch (IllegalArgumentException ex){
+            log.error("Invalid Base64 QRcode for ticket ID:{}", ticketId);
+            throw new IllegalArgumentException("Invalid Base64 QRcode for ticket ID: " + ticketId,ex);
+
+        }
+    }
+
     //Phương thức tạo ảnh QRcode từ chuỗi Base64
     private String generateQRCodeImage(String content) throws WriterException, IOException {
         //Kích thước mã QR
