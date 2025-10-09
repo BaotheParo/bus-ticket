@@ -26,7 +26,7 @@ public interface TicketMapper {
     @Mapping(source = "status", target = "status")
     @Mapping(source = "ticketType.price", target = "price")
     @Mapping(source = "ticketType.description", target = "description")
-    @Mapping(source = "ticketType.trip.routeName", target = "tripName")
+    @Mapping(source = "ticketType.trip.routeName", target = "routeName")
     @Mapping(source = "ticketType.trip.departurePoint", target = "departurePoint")
     @Mapping(source = "ticketType.trip.destination", target = "destination")
     @Mapping(source = "ticketType.trip.departureTime", target = "departureTime")

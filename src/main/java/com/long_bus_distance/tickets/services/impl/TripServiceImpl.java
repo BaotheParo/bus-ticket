@@ -98,7 +98,7 @@ public class TripServiceImpl implements TripService{
     @Override
     public Page<Trip> listTripsForOperator(UUID operatorId, Pageable pageable) {
         log.info("Listing trips for operator ID: {}", operatorId);
-        return tripRepository.findByOrganizerId(operatorId,pageable);
+        return tripRepository.findByOperatorId(operatorId,pageable);
     }
 
     // Lấy thông tin chi tiết một chuyến xe của nhà điều hành.

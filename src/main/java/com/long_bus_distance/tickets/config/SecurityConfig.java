@@ -5,6 +5,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 
@@ -39,5 +41,11 @@ public class SecurityConfig {
                 .addFilterAfter(userProvisioningFilter, BasicAuthenticationFilter.class);
 
         return http.build();
+    }
+    @Bean
+    public JwtDecoder jwtDecoder() {
+        // Sử dụng issuer URL từ application.properties hoặc hardcode tạm thời
+        String issuerUri = "http://localhost:9090/realms/trip-ticket-platform";
+        return NimbusJwtDecoder.withJwkSetUri(issuerUri + "/protocol/openid-connect/certs").build();
     }
 }

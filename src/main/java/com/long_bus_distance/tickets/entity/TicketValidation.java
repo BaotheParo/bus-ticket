@@ -35,9 +35,6 @@ public class TicketValidation {
     private LocalDateTime validationTime;
 
     // Audit fields
-    @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
 
     @LastModifiedDate
     @Column(name = "updated_at", nullable = false)

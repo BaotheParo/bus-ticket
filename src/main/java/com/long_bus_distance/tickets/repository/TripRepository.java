@@ -22,7 +22,7 @@ public interface TripRepository extends JpaRepository<Trip, UUID> {
     // @param organizerId ID của nhà điều hành (operator) để lọc các chuyến xe.
     // @param pageable Đối tượng phân trang (page, size, sort).
     // @return Trang (Page) chứa danh sách các chuyến xe thuộc nhà điều hành.
-    Page<Trip> findByOrganizerId(UUID organizerId, Pageable pageable);
+    Page<Trip> findByOperatorId(UUID organizerId, Pageable pageable);
 
     // Tìm một chuyến xe cụ thể theo ID chuyến xe và ID nhà điều hành.
     // @param tripId ID của chuyến xe cần tìm.
@@ -41,10 +41,9 @@ public interface TripRepository extends JpaRepository<Trip, UUID> {
     // @param pageable Đối tượng phân trang.
     // @return Trang (Page) chứa danh sách các chuyến xe khớp với truy vấn tìm kiếm.
     // Truy vấn sử dụng to_tsvector và to_tsquery để tìm kiếm trên routeName, departurePoint, destination.
-    @Query("SELECT t FROM Trip t " +
-            "WHERE t.status = 'PUBLISHED' " +
-            "AND to_tsvector('vietnamese', t.routeName || ' ' || t.departurePoint || ' ' || t.destination) " +
-            "@@ to_tsquery('vietnamese', :searchTerm)")
+    @Query(value = "SELECT * FROM trips t WHERE t.status = 'PUBLISHED' " +
+            "AND to_tsvector('simple', t.route_name || ' ' || t.departure_point || ' ' || t.destination) @@ to_tsquery('simple', :searchTerm)",
+            nativeQuery = true)
     Page<Trip> searchTrips(@Param("searchTerm") String searchTerm, Pageable pageable);
 
     // Tìm một chuyến xe theo ID và trạng thái.
