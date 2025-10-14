@@ -15,7 +15,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 @Entity
-@Table(name = "ticket")
+@Table(name = "tickets")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -23,49 +23,52 @@ import java.util.UUID;
 public class Ticket {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "id", nullable = false,updatable = false)
+    @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    private TicketStatusEnum status;
+    private TicketStatusEnum status = TicketStatusEnum.PURCHASED;
 
     @Column(name = "selected_seat", nullable = true)
-    private String selectedSeat;
+    private String selectedSeat;  // Full "B2" sau normalize
 
-    //Audit fields
+    @Column(name = "price", nullable = false)
+    private Double price;
+
     @CreatedDate
-    @Column(name = "created_at",nullable = false,updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @LastModifiedDate
-    @Column(name = "updated_at",nullable = false)
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    //Moi quan he
+    // Relations
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ticket_type_id")
-    private TicketType ticketType;
+    @JoinColumn(name = "deck_id", nullable = false)
+    private Deck deck;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "purchaser_id")
+    @JoinColumn(name = "purchaser_id", nullable = false)
     private User purchaser;
 
-    @OneToMany(mappedBy = "ticket",cascade = CascadeType.ALL)
-    private List<TicketValidation> validations = new ArrayList<>(); //Khoi tao de tranh loi NullPointerException
+    @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL)
+    private List<TicketValidation> validations = new ArrayList<>();
 
     @OneToMany(mappedBy = "ticket", cascade = CascadeType.ALL)
-    private List<QRCode> qrCodes = new ArrayList<>(); // //Khoi tao de tranh loi NullPointerException
+    private List<QRCode> qrCodes = new ArrayList<>();
 
     @Override
     public boolean equals(Object o) {
+        if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Ticket ticket = (Ticket) o;
-        return Objects.equals(id, ticket.id) && status == ticket.status && Objects.equals(selectedSeat, ticket.selectedSeat) && Objects.equals(createdAt, ticket.createdAt) && Objects.equals(updatedAt, ticket.updatedAt);
+        return Objects.equals(id, ticket.id) && status == ticket.status && Objects.equals(selectedSeat, ticket.selectedSeat) && Objects.equals(price, ticket.price) && Objects.equals(createdAt, ticket.createdAt) && Objects.equals(updatedAt, ticket.updatedAt);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, status, selectedSeat, createdAt, updatedAt);
+        return Objects.hash(id, status, selectedSeat, price, createdAt, updatedAt);
     }
 }

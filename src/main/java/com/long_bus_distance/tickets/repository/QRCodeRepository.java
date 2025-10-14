@@ -9,5 +9,5 @@ import java.util.UUID;
 
 @Repository
 public interface QRCodeRepository extends JpaRepository<QRCode, UUID> {
-    Optional<QRCode> findByTicketIdAndTicketPurchaserId(UUID ticketId, UUID purchaserId);
+    Optional<QRCode> findByTicketIdAndTicketPurchaserId(UUID ticketId, UUID purchaserId);  // Để check quyền user
 }

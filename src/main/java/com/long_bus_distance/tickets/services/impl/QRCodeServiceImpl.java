@@ -26,71 +26,60 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class QRCodeServiceImpl implements QRCodeService{
+public class QRCodeServiceImpl implements QRCodeService {
     private final QRCodeWriter qrCodeWriter;
     private final QRCodeRepository qrCodeRepository;
 
     @Override
     public QRCode generateQRCode(Ticket ticket) {
-        log.info("Generating QR code for ticket ID: {}", ticket.getId());
+        log.info("Tạo QR cho Ticket ID: {}", ticket.getId());
         try {
-            //Tạo ra UUID random cho QR
-            UUID uniqueId= UUID.randomUUID();
+            // Content QR: ticketId + selectedSeat
+            String content = ticket.getId().toString() + "-" + ticket.getSelectedSeat();
 
-            //Tạo ra ảnh QR
-            String base64Image= generateQRCodeImage(uniqueId.toString());
+            // Generate Base64 image
+            String base64Image = generateQRCodeImage(content);
 
-            //Tạo và điền thông tin QR
-            QRCode qrCode =new QRCode();
-            qrCode.setId(uniqueId);
-            qrCode.setValue(base64Image);
-            qrCode.setStatus(QRCodeStatusEnum.ACTIVE);
-            qrCode.setTicket(ticket);
+            // Tạo QR entity (id = null để JPA auto-gen, tránh detached)
+            QRCode qrCode = QRCode.builder()
+                    .id(null)  // Fix: Bỏ UUID.randomUUID(), let JPA gen
+                    .value(base64Image)
+                    .status(QRCodeStatusEnum.ACTIVE)
+                    .ticket(ticket)
+                    .build();
 
-            //Lưu QR vào DB
-            QRCode savedQRCode = qrCodeRepository.saveAndFlush(qrCode);
-            log.info("Successfully generated and saved QR code with ID: {}",savedQRCode.getId());
-            return savedQRCode;
-
-        }catch (WriterException | IOException e){
-            log.error("Failed to generate QR code for ticket ID: {}",ticket.getId(),e);
-            throw new QRCodeGenerationException("Error generating QR code", e);
+            QRCode saved = qrCodeRepository.saveAndFlush(qrCode);  // Bây giờ OK, no stale
+            log.info("Tạo QR thành công ID: {}", saved.getId());
+            return saved;
+        } catch (WriterException | IOException e) {
+            log.error("Lỗi tạo QR cho Ticket: {}", ticket.getId(), e);
+            throw new QRCodeGenerationException("Lỗi tạo QR Code", e);
         }
     }
 
     @Override
     public byte[] getQRCodeImageForUserAndTicket(UUID userId, UUID ticketId) {
-        log.info("Retrieving QR code for ticket ID: {} and user ID: {}", ticketId, userId);
-        //Tìm ma QR bằng ID vé và ID ng mua
-        QRCode qrCode =qrCodeRepository.findByTicketIdAndTicketPurchaserId(ticketId,userId)
-                .orElseThrow(()-> new QRCodeNotFoundException("QR code not found for ticket ID: "+ ticketId));
-        try{
-            //Decode Base64 của mã QR vào mảng byte
+        log.info("Lấy QR cho Ticket ID: {} của user: {}", ticketId, userId);
+        QRCode qrCode = qrCodeRepository.findByTicketIdAndTicketPurchaserId(ticketId, userId)
+                .orElseThrow(() -> new QRCodeNotFoundException("QR không tìm thấy cho Ticket: " + ticketId));
+        try {
             return Base64.getDecoder().decode(qrCode.getValue());
-        }catch (IllegalArgumentException ex){
-            log.error("Invalid Base64 QRcode for ticket ID:{}", ticketId);
-            throw new IllegalArgumentException("Invalid Base64 QRcode for ticket ID: " + ticketId,ex);
-
+        } catch (IllegalArgumentException e) {
+            log.error("Base64 QR không hợp lệ cho Ticket: {}", ticketId, e);
+            throw new IllegalArgumentException("QR Code không hợp lệ", e);
         }
     }
 
-    //Phương thức tạo ảnh QRcode từ chuỗi Base64
     private String generateQRCodeImage(String content) throws WriterException, IOException {
-        //Kích thước mã QR
-        int qrWidth = 300;
-        int qrHeight = 300;
+        int width = 300;
+        int height = 300;
 
-        //Mã hóa vào BitMatrix
-        BitMatrix bitMatrix = qrCodeWriter.encode(content, BarcodeFormat.QR_CODE, qrWidth,qrHeight);
-
-        //Chuyển từ BitMatrix sang BufferedImage
+        BitMatrix bitMatrix = qrCodeWriter.encode(content, BarcodeFormat.QR_CODE, width, height);
         BufferedImage bufferedImage = MatrixToImageWriter.toBufferedImage(bitMatrix);
 
-        //Tạo BufferedImage sang ByteArrayOutputStream từ PNG
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ImageIO.write(bufferedImage,"png", baos);
+        ImageIO.write(bufferedImage, "png", baos);
 
-        //Mã hóa byte thành chuỗi Bas64
         return Base64.getEncoder().encodeToString(baos.toByteArray());
     }
 }

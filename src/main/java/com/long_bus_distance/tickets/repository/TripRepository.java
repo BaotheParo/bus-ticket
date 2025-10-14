@@ -6,6 +6,7 @@ import com.long_bus_distance.tickets.entity.TripStatusEnum;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -51,4 +52,8 @@ public interface TripRepository extends JpaRepository<Trip, UUID> {
     // @param status Trạng thái của chuyến xe (ví dụ: PUBLISHED).
     // @return Optional chứa Trip nếu tìm thấy, hoặc rỗng nếu không tìm thấy.
     Optional<Trip> findByIdAndStatus(UUID id, TripStatusEnum status);
+
+    @Modifying
+    @Query("UPDATE Trip t SET t.busType.id = :undefinedId WHERE t.busType.id = :oldId")
+    void updateBusTypeToUndefined(@Param("oldId") UUID oldId, @Param("undefinedId") UUID undefinedId);
 }

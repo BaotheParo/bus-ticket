@@ -7,25 +7,26 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 public class CreateTripResponseDto {
-    private String id;
+    private UUID id;
     private String routeName;
     private LocalDateTime departureTime;
     private String departurePoint;
     private LocalDateTime arrivalTime;
     private String destination;
     private Integer durationMinutes;
-    private String busType;
+    private UUID busTypeId;
+    private Double basePrice;
     private List<String> tripSchedule;
     private LocalDateTime salesStart;
     private LocalDateTime salesEnd;
     private TripStatusEnum status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-
-    private List<CreateTicketTypeResponseDto> ticketTypes;
+    private List<DeckResponseDto> decks;  // Decks cloned
 }

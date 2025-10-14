@@ -12,7 +12,6 @@ import java.util.UUID;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-
 public class GetTripDetailsResponseDto {
     private UUID id;
     private String routeName;
@@ -21,12 +20,13 @@ public class GetTripDetailsResponseDto {
     private LocalDateTime arrivalTime;
     private String destination;
     private Integer durationMinutes;
-    private String busType;
+    private UUID busTypeId;
+    private Double basePrice;
     private List<String> tripSchedule;
     private LocalDateTime salesStart;
     private LocalDateTime salesEnd;
     private TripStatusEnum status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private List<GetTicketTypeDetailsResponseDto> ticketTypes;
+    private List<DeckResponseDto> decks;  // Chi tiết decks
 }

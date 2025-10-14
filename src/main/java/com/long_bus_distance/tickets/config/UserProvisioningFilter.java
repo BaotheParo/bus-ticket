@@ -1,6 +1,7 @@
-package com.long_bus_distance.tickets.repository;
+package com.long_bus_distance.tickets.config;
 
 import com.long_bus_distance.tickets.entity.User;
+import com.long_bus_distance.tickets.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.UUID;
 
 // Lớp UserProvisioningFilter là một bộ lọc (filter) để tự động tạo người dùng trong cơ sở dữ liệu khi họ đăng nhập lần đầu qua JWT.
@@ -59,6 +61,9 @@ public class UserProvisioningFilter extends OncePerRequestFilter {
                 user.setLastname(jwt.getClaims().get("family_name") != null
                         ? jwt.getClaims().get("family_name").toString()
                         : "Unknown");
+                // Default dateOfBirth nếu không có từ JWT (có thể null hoặc default)
+                user.setDateOfBirth(LocalDate.now().minusYears(25));  // Ví dụ default
+                user.setPassword("N/A");  // Không dùng
                 // Lưu người dùng mới vào cơ sở dữ liệu
                 userRepository.save(user);
             }

@@ -1,9 +1,9 @@
 package com.long_bus_distance.tickets.config;
 
-import com.long_bus_distance.tickets.repository.UserProvisioningFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
@@ -11,40 +11,44 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 
 @Configuration
+@EnableWebSecurity
 public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, UserProvisioningFilter userProvisioningFilter, JWTAuthenticationConverter jwtAuthenticationConverter) throws Exception {
         http
                 .authorizeHttpRequests(authorize -> authorize
-                        // Cho phép truy cập công khai vào điểm cuối GET /api/v1/published-trips
+                        // Công khai: Liệt kê chuyến PUBLISHED
                         .requestMatchers("GET", "/api/v1/published-trips/**").permitAll()
-                        // Chỉ cho phép STAFF mới xác thực vé
-                        .requestMatchers("/api/v1/ticket-validations/**").hasRole("STAFF")
-                        // Chỉ cho phép OPERATOR mới truy cập quản lý chuyến xe
+                        // OPERATOR: Quản lý Trip/BusType
                         .requestMatchers("/api/v1/trips/**").hasRole("OPERATOR")
-                        .anyRequest().authenticated() // Đảm bảo tất cả yêu cầu HTTP đều phải xác thực
+                        .requestMatchers("/api/v1/bus-types/**").hasRole("OPERATOR")
+                        .requestMatchers("GET", "/api/v1/bus-types").permitAll()  // GET list công khai
+                        // STAFF: Xác thực vé
+                        .requestMatchers("/api/v1/ticket-validations/**").hasRole("STAFF")
+                        .requestMatchers("/api/v1/tickets/**").authenticated()  // User authenticated cho vé cá nhân
+                        // USER: Vé cá nhân
+                        .requestMatchers("/api/v1/tickets/**").authenticated()
+                        .requestMatchers("/api/v1/ticket-validations/**").hasRole("STAFF")
+                        .requestMatchers("GET", "/api/v1/trips/**").permitAll()  // Bao gồm /seats cho public
+                        .requestMatchers("POST", "PUT", "DELETE", "/api/v1/trips/**").hasRole("OPERATOR")
+                        .anyRequest().authenticated()
                 )
-                // Vô hiệu hóa cơ chế Cross-Site Request Forgery cho triển khai REST API
                 .csrf(csrf -> csrf.disable())
-                // Vì thiết kế REST API nên STATELESS
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
-                // Xác thực bằng OAuth2 và JWT
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .oauth2ResourceServer(oauth2 -> oauth2
-                        //chuyển đổi JWT Auth
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter))
+                        .jwt(jwt -> jwt
+                                .decoder(jwtDecoder())
+                                .jwtAuthenticationConverter(jwtAuthenticationConverter)
+                        )
                 )
-                // Đảm bảo bộ lọc thực thi sau Bearer, đối tượng xác thực đã có mặt và người dùng được xác thực
-                // => Cho phép bộ lọc truy cập JWT
-                .addFilterAfter(userProvisioningFilter, BasicAuthenticationFilter.class);
+                .addFilterAfter(userProvisioningFilter, BasicAuthenticationFilter.class);  // Provision user sau JWT validate
 
         return http.build();
     }
+
     @Bean
     public JwtDecoder jwtDecoder() {
-        // Sử dụng issuer URL từ application.properties hoặc hardcode tạm thời
         String issuerUri = "http://localhost:9090/realms/trip-ticket-platform";
         return NimbusJwtDecoder.withJwkSetUri(issuerUri + "/protocol/openid-connect/certs").build();
     }

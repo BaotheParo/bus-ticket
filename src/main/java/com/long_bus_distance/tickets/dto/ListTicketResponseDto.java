@@ -11,5 +11,8 @@ import lombok.NoArgsConstructor;
 public class ListTicketResponseDto {
     private String id;
     private TicketStatusEnum status;
-    private ListTicketTypeResponseDto ticketType;
+    private Double price;
+    private String selectedSeat;
+    private String deckLabel;  // "B" từ Deck
+    private String routeName;  // Từ Trip
 }

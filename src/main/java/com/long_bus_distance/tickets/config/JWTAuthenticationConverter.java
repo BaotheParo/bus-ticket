@@ -18,22 +18,22 @@ public class JWTAuthenticationConverter implements Converter<Jwt, JwtAuthenticat
     public JwtAuthenticationToken convert(Jwt jwt) {
         // Trích role từ JWT
         List<SimpleGrantedAuthority> authorities = extractAuthorities(jwt);
-        // Tạo và trả vè hàm dưới với quyền được trích xuất
-        return  new JwtAuthenticationToken(jwt, authorities);
+        // Tạo và trả về hàm dưới với quyền được trích xuất
+        return new JwtAuthenticationToken(jwt, authorities);
     }
 
-    // Phương thức dùng để trích xuất role từ realm_access (dãy kí tự mã hóa) của JWT
-    private List<SimpleGrantedAuthority> extractAuthorities(Jwt jwt){
-        //Lấy realm_access và xác nhận là Map (getClaimAsMap)
+    // Phương thức dùng để trích xuất role từ realm_access (dãy ký tự mã hóa) của JWT
+    private List<SimpleGrantedAuthority> extractAuthorities(Jwt jwt) {
+        // Lấy realm_access và xác nhận là Map (getClaimAsMap)
         Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");
-        //Kiểm tra realm_access có null không hoặc có chưa role không
-        if (realmAccess == null || !realmAccess.containsKey("roles")){
+        // Kiểm tra realm_access có null không hoặc có chưa role không
+        if (realmAccess == null || !realmAccess.containsKey("roles")) {
             return Collections.emptyList();
         }
 
-        //Trích xuất role dạng List<STRING> và lọc vai trò bắt đầu bằng ROL_
+        // Trích xuất role dạng List<STRING> và lọc vai trò bắt đầu bằng ROLE_
         return ((List<?>) realmAccess.get("roles")).stream()
-                .filter(role -> role instanceof String && ((String) role).startsWith("ROL_"))
+                .filter(role -> role instanceof String && ((String) role).startsWith("ROLE_"))
                 .map(role -> new SimpleGrantedAuthority((String) role))
                 .collect(Collectors.toList());
     }

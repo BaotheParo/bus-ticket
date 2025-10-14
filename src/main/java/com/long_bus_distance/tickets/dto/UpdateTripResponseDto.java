@@ -20,13 +20,11 @@ public class UpdateTripResponseDto {
     private LocalDateTime arrivalTime;
     private String destination;
     private Integer durationMinutes;
-    private String busType;
+    private UUID busTypeId;
+    private Double basePrice;
     private List<String> tripSchedule;
     private LocalDateTime salesStart;
     private LocalDateTime salesEnd;
     private TripStatusEnum status;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-
-    private List<UpdateTicketTypeResponseDto> ticketTypes;
+    private List<DeckResponseDto> decks;  // Updated decks
 }

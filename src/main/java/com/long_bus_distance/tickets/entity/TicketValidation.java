@@ -10,7 +10,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 @Entity
-@Table(name = "ticket_validation")
+@Table(name = "ticket_validations")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -18,42 +18,40 @@ import java.util.UUID;
 @Builder
 public class TicketValidation {
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status",nullable = false)
+    @Column(name = "status", nullable = false)
     private TicketStatusEnum status;
 
     @Enumerated(EnumType.STRING)
-    @Column(name= "validation_method",nullable = false)
+    @Column(name = "validation_method", nullable = false)
     private TicketValidationMethodEnum validationMethod;
 
     @CreatedDate
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "validation_time", nullable = false, updatable = false)
     private LocalDateTime validationTime;
-
-    // Audit fields
 
     @LastModifiedDate
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
-    //Moi quan he
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ticket_id")
+    @JoinColumn(name = "ticket_id", nullable = false)
     private Ticket ticket;
 
     @Override
     public boolean equals(Object o) {
+        if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         TicketValidation that = (TicketValidation) o;
-        return Objects.equals(id, that.id) && status == that.status && Objects.equals(updatedAt, that.updatedAt) && Objects.equals(ticket, that.ticket);
+        return Objects.equals(id, that.id) && status == that.status && validationMethod == that.validationMethod && Objects.equals(validationTime, that.validationTime) && Objects.equals(updatedAt, that.updatedAt);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, status, updatedAt, ticket);
+        return Objects.hash(id, status, validationMethod, validationTime, updatedAt);
     }
 }

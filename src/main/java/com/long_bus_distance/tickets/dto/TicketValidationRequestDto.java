@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class TicketValidationRequestDto {
-    private String id;
+    private String id;  // ticketId (manual) or qrId (QR scan)
     private TicketValidationMethodEnum method;
-
 }

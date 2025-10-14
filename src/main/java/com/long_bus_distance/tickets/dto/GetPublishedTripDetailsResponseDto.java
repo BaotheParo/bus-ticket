@@ -18,5 +18,7 @@ public class GetPublishedTripDetailsResponseDto {
     private String departurePoint;
     private LocalDateTime arrivalTime;
     private String destination;
-    private List<GetPublishedTripDetailsTicketTypesResponseDto> ticketTypes;
+    private UUID busTypeId;  // Fix: Thêm field này
+    private Double basePrice;  // Thêm nếu cần
+    private List<DeckResponseDto> decks;
 }

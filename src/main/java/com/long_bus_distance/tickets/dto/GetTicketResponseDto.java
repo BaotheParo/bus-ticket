@@ -14,7 +14,8 @@ public class GetTicketResponseDto {
     private String id;
     private TicketStatusEnum status;
     private Double price;
-    private String description;
+    private String selectedSeat;
+    private String deckLabel;
     private String routeName;
     private String departurePoint;
     private LocalDateTime departureTime;

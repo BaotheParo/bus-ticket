@@ -20,10 +20,11 @@ public class ListTripResponseDto {
     private LocalDateTime arrivalTime;
     private String destination;
     private Integer durationMinutes;
-    private String busType;
+    private UUID busTypeId;
+    private Double basePrice;
     private List<String> tripSchedule;
     private LocalDateTime salesStart;
     private LocalDateTime salesEnd;
     private TripStatusEnum status;
-    private List<ListTicketTypeResponseDto> ticketTypes;
+    private List<DeckResponseDto> decks;  // Với remainingCount
 }

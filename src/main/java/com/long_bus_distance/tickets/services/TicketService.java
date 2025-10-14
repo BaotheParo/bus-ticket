@@ -8,9 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface TicketService {
-    //Liệt kê toàn bộ vé cho user cụ thể với phân trang
+    Ticket purchaseTicket(UUID userId, UUID tripId, UUID deckId, String selectedSeatPos);  // Pos "2"
     Page<Ticket> listTicketForUser(UUID userId, Pageable pageable);
-
-    //Lấy vé cho người dùng
     Optional<Ticket> getTicketForUser(UUID ticketId, UUID userId);
 }

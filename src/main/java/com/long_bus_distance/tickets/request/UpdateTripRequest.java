@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 import java.util.UUID;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -18,10 +19,10 @@ public class UpdateTripRequest {
     private String arrivalTime;
     private String destination;
     private Integer durationMinutes;
-    private String busType;
+    private UUID busTypeId;  // Optional, nếu có thì re-clone decks
     private List<String> tripSchedule;
     private String salesStart;
     private String salesEnd;
     private TripStatusEnum status;
-    private List<UpdateTicketTypeRequest> ticketTypes;
+    private Double basePrice;
 }
