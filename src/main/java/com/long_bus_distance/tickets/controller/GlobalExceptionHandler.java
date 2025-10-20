@@ -4,6 +4,7 @@ import com.long_bus_distance.tickets.dto.ErrorDto;
 import com.long_bus_distance.tickets.exception.*;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.InvalidDataAccessResourceUsageException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -107,5 +108,12 @@ public class GlobalExceptionHandler {
         log.error("Ticket not found", ex);
         ErrorDto errorDto = new ErrorDto(ex.getMessage());
         return new ResponseEntity<>(errorDto, HttpStatus.BAD_REQUEST);
+    }
+    @ExceptionHandler(InvalidDataAccessResourceUsageException.class)
+    public ResponseEntity<ErrorDto> handleInvalidDataAccess(InvalidDataAccessResourceUsageException ex) {
+        log.warn("Invalid SQL query or data access: {}", ex.getMessage());
+        // Return empty-like response thay vì error (UX-friendly)
+        ErrorDto errorDto = new ErrorDto("No trips found matching criteria");
+        return new ResponseEntity<>(errorDto, HttpStatus.OK);  // 200 thay vì 500
     }
 }

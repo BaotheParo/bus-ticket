@@ -25,16 +25,37 @@ public class PublishedTripController {
 
     @GetMapping
     public ResponseEntity<Page<ListPublishedTripResponseDto>> listPublishedTrip(
-            @RequestParam(name = "q", required = false) String query, Pageable pageable) {
-        log.info("Nhận yêu cầu GET để liệt kê hoặc tìm kiếm các chuyến xe đã xuất bản với truy vấn: {} và phân trang: {}", query, pageable);
-        Page<Trip> trips;
-        if (query != null && !query.trim().isEmpty()) {
-            trips = tripService.searchPublishedTrips(query, pageable);
+            @RequestParam(name = "departurePoint", required = false) String departurePoint,
+            @RequestParam(name = "destination", required = false) String destination,
+            @RequestParam(name = "departureDate", required = false) String departureDate,
+            @RequestParam(name = "numTickets", defaultValue = "1") int numTickets,
+            @RequestParam(name = "timeSlot", required = false) String timeSlot,
+            @RequestParam(name = "busType", required = false) String busType,
+            @RequestParam(name = "deckLabel", required = false) String deckLabel,
+            @RequestParam(name = "q", required = false) String query,  // Keep old query if needed
+            Pageable pageable) {
+
+        log.info("Search published trips: departurePoint={}, destination={}, date={}, numTickets={}, filters={}",
+                departurePoint, destination, departureDate, numTickets,
+                "timeSlot=" + timeSlot + ",busType=" + busType + ",deck=" + deckLabel);
+
+        // Use new search method (primary + filters); old 'q' fallback to simple search if no primary
+        Page<ListPublishedTripResponseDto> response;
+        if (departurePoint != null || destination != null || departureDate != null) {
+            // Primary search mode
+            response = tripService.searchPublishedTrips(departurePoint, destination, departureDate, numTickets,
+                    timeSlot, busType, deckLabel, pageable);
+        } else if (query != null && !query.trim().isEmpty()) {
+            // Backward compat: Old simple search
+            Page<Trip> trips = tripService.searchPublishedTrips(query, pageable);  // Existing
+            response = trips.map(tripMapper::toListPublishedTripResponseDto);
         } else {
-            trips = tripService.listPublishedTrips(pageable);
+            // Default: List all published (no filter)
+            Page<Trip> trips = tripService.listPublishedTrips(pageable);
+            response = trips.map(tripMapper::toListPublishedTripResponseDto);
         }
-        Page<ListPublishedTripResponseDto> responseDtos = trips.map(tripMapper::toListPublishedTripResponseDto);
-        return ResponseEntity.ok(responseDtos);
+
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/{id}")

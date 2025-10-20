@@ -1,6 +1,7 @@
 package com.long_bus_distance.tickets.services.impl;
 
 import com.long_bus_distance.tickets.dto.DeckWithSeatsDto;
+import com.long_bus_distance.tickets.dto.ListPublishedTripResponseDto;
 import com.long_bus_distance.tickets.dto.SeatDto;
 import com.long_bus_distance.tickets.dto.TripSeatsResponseDto;
 import com.long_bus_distance.tickets.entity.*;
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Service;
 import com.long_bus_distance.tickets.repository.DeckRepository;  // Để deleteAll
 
 // Và inject private final DeckRepository deckRepository; trong constructor (RequiredArgsConstructor sẽ auto)
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -200,5 +202,73 @@ public class TripServiceImpl implements TripService {
         }).collect(Collectors.toList());
 
         return new TripSeatsResponseDto(trip.getId(), trip.getRouteName(), deckDtos);
+    }
+
+    @Override
+    public Page<ListPublishedTripResponseDto> searchPublishedTrips(
+            String departurePoint, String destination, String departureDateStr, int numTickets,
+            String timeSlot, String busType, String deckLabel, Pageable pageable) {
+
+        // Validate primary params (bắt buộc)
+        if (departurePoint == null || departurePoint.trim().isEmpty() ||
+                destination == null || destination.trim().isEmpty() ||
+                departureDateStr == null || departureDateStr.trim().isEmpty() ||
+                numTickets < 1) {
+            // Return empty page nếu thiếu
+            return Page.empty(pageable);
+        }
+
+        LocalDate departureDate;
+        try {
+            departureDate = LocalDate.parse(departureDateStr);  // ISO format (e.g., "2025-10-21")
+        } catch (Exception e) {
+            return Page.empty(pageable);  // Invalid date → empty
+        }
+
+        // Parse filters (comma-separated)
+        Integer startHour = null, endHour = null;
+        if (timeSlot != null && !timeSlot.trim().isEmpty()) {
+            String[] slots = timeSlot.split(",");
+            // Handle single/multi: Lấy first cho simple; nếu multi, adjust query để OR (e.g., multiple conditions)
+            // Giả sử single select như yêu cầu (chọn 1 slot), dùng first
+            try {
+                TimeSlotEnum slotEnum = TimeSlotEnum.valueOf(slots[0].trim().toUpperCase());
+                startHour = slotEnum.getStartTime().getHour();
+                endHour = slotEnum.getEndTime().getHour();
+                if (endHour == 23) endHour = 24;  // Edge for EVENING (PostgreSQL EXTRACT handles 24 as 00 next day if needed)
+            } catch (IllegalArgumentException e) {
+                // Invalid slot → ignore filter
+            }
+        }
+
+        // BusType: Trim và pass nếu có
+        String busTypesStr = (busType != null && !busType.trim().isEmpty()) ? busType.trim() : null;
+
+        // DeckLabel: Trim và pass nếu có
+        String deckLabelsStr = (deckLabel != null && !deckLabel.trim().isEmpty()) ? deckLabel.trim() : null;
+
+        // Call repo: Dùng filtered nếu có bất kỳ filter nào, else base
+        Page<Object[]> results;
+        if (startHour != null || busTypesStr != null || deckLabelsStr != null) {
+            results = tripRepository.searchPublishedTripsFiltered(
+                    departurePoint.trim(), destination.trim(), departureDate, numTickets,
+                    startHour, endHour, busTypesStr, deckLabelsStr, pageable);
+        } else {
+            results = tripRepository.searchPublishedTripsBase(
+                    departurePoint.trim(), destination.trim(), departureDate, numTickets, pageable);
+        }
+
+        // Map to DTO: SỬA Ở ĐÂY - Dùng no-arg constructor + setters (vì @Data cung cấp setters)
+        return results.map(row -> {
+            ListPublishedTripResponseDto dto = new ListPublishedTripResponseDto();  // No-arg constructor
+            dto.setId((UUID) row[0]);
+            dto.setRouteName((String) row[1]);
+            dto.setDepartureTime((LocalDateTime) row[2]);
+            dto.setDeparturePoint((String) row[3]);
+            dto.setArrivalTime((LocalDateTime) row[4]);
+            dto.setDestination((String) row[5]);
+            dto.setTotalAvailableSeats(((Number) row[6]).intValue());  // Cast Number to int (từ query alias)
+            return dto;
+        });
     }
 }

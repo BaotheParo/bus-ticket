@@ -17,4 +17,5 @@ public class ListPublishedTripResponseDto {
     private String departurePoint;
     private LocalDateTime arrivalTime;
     private String destination;
+    private Integer totalAvailableSeats;
 }

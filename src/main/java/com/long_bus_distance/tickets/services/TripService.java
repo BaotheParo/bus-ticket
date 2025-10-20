@@ -1,5 +1,6 @@
 package com.long_bus_distance.tickets.services;
 
+import com.long_bus_distance.tickets.dto.ListPublishedTripResponseDto;
 import com.long_bus_distance.tickets.dto.TripSeatsResponseDto;
 import com.long_bus_distance.tickets.entity.Trip;
 import com.long_bus_distance.tickets.request.CreateTripRequest;
@@ -21,4 +22,7 @@ public interface TripService {
     Page<Trip> searchPublishedTrips(String query, Pageable pageable);
     Optional<Trip> getPublishedTrip(UUID id);
     TripSeatsResponseDto getSeatsForTrip(UUID tripId);
+    Page<ListPublishedTripResponseDto> searchPublishedTrips(
+            String departurePoint, String destination, String departureDateStr, int numTickets,
+            String timeSlot, String busType, String deckLabel, Pageable pageable);
 }
