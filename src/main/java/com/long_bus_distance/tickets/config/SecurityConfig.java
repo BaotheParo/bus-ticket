@@ -1,5 +1,6 @@
 package com.long_bus_distance.tickets.config;
 
+import org.springframework.beans.factory.annotation.Value; // <-- THÊM IMPORT NÀY
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -13,6 +14,10 @@ import org.springframework.security.web.authentication.www.BasicAuthenticationFi
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    // --- BƯỚC 1: Tiêm (inject) giá trị issuer-url từ file properties/biến môi trường ---
+    @Value("${spring.security.oauth2.resourceserver.jwt.issuer-url}")
+    private String issuerUri;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, UserProvisioningFilter userProvisioningFilter, JWTAuthenticationConverter jwtAuthenticationConverter) throws Exception {
@@ -38,7 +43,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt
-                                .decoder(jwtDecoder())
+                                .decoder(jwtDecoder()) // Sẽ gọi hàm jwtDecoder() bên dưới
                                 .jwtAuthenticationConverter(jwtAuthenticationConverter)
                         )
                 )
@@ -49,7 +54,12 @@ public class SecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder() {
-        String issuerUri = "http://localhost:9090/realms/trip-ticket-platform";
-        return NimbusJwtDecoder.withJwkSetUri(issuerUri + "/protocol/openid-connect/certs").build();
+        // --- BƯỚC 2: Sử dụng biến 'issuerUri' đã được tiêm (inject) ---
+        // Xóa dòng gõ cứng "localhost:9090"
+        // String issuerUri = "http://localhost:9090/realms/trip-ticket-platform";
+
+        // Sử dụng giá trị từ biến môi trường (sẽ là http://keycloak:8080/...)
+        return NimbusJwtDecoder.withJwkSetUri(this.issuerUri + "/protocol/openid-connect/certs").build();
     }
 }
+
