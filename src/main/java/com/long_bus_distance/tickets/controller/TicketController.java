@@ -4,6 +4,7 @@ import com.long_bus_distance.tickets.dto.GetTicketResponseDto;
 import com.long_bus_distance.tickets.dto.ListTicketResponseDto;
 import com.long_bus_distance.tickets.dto.PurchaseTicketRequestDto;
 import com.long_bus_distance.tickets.entity.Ticket;
+import com.long_bus_distance.tickets.entity.User;
 import com.long_bus_distance.tickets.mapper.TicketMapper;
 import com.long_bus_distance.tickets.services.QRCodeService;
 import com.long_bus_distance.tickets.services.TicketService;
@@ -15,8 +16,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
@@ -31,45 +33,53 @@ public class TicketController {
     private final TicketMapper ticketMapper;
     private final QRCodeService qrCodeService;
 
+    // Helper method to get the authenticated user from the Security Context
+    private User getAuthenticatedUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new IllegalStateException("User is not authenticated");
+        }
+        return (User) authentication.getPrincipal();
+    }
+
     @PostMapping
+    @PreAuthorize("hasRole('PASSENGER')")
     public ResponseEntity<GetTicketResponseDto> purchaseTicket(
-            @Valid @RequestBody PurchaseTicketRequestDto requestDto,
-            JwtAuthenticationToken authentication) {
+            @Valid @RequestBody PurchaseTicketRequestDto requestDto) {
         log.info("Nhận request mua vé cho trip {}, deck {}", requestDto.getTripId(), requestDto.getDeckId());
-        Jwt jwt = (Jwt) authentication.getPrincipal();
-        UUID userId = UUID.fromString(jwt.getSubject());
-        Ticket ticket = ticketService.purchaseTicket(userId, requestDto.getTripId(), requestDto.getDeckId(), requestDto.getSelectedSeat());
+        User currentUser = getAuthenticatedUser();
+        Ticket ticket = ticketService.purchaseTicket(currentUser.getId(), requestDto.getTripId(), requestDto.getDeckId(), requestDto.getSelectedSeat());
         GetTicketResponseDto responseDto = ticketMapper.toGetTicketResponseDto(ticket);
         return ResponseEntity.ok(responseDto);
     }
 
     @GetMapping
-    public ResponseEntity<Page<ListTicketResponseDto>> listTickets(JwtAuthenticationToken authentication, Pageable pageable) {
+    @PreAuthorize("hasRole('PASSENGER')")
+    public ResponseEntity<Page<ListTicketResponseDto>> listTickets(Pageable pageable) {
         log.info("Liệt kê vé cho user với phân trang: {}", pageable);
-        Jwt jwt = (Jwt) authentication.getPrincipal();
-        UUID userId = UUID.fromString(jwt.getSubject());
-        Page<Ticket> tickets = ticketService.listTicketForUser(userId, pageable);
+        User currentUser = getAuthenticatedUser();
+        Page<Ticket> tickets = ticketService.listTicketForUser(currentUser.getId(), pageable);
         Page<ListTicketResponseDto> responseDtos = tickets.map(ticketMapper::toListTicketResponseDto);
         return ResponseEntity.ok(responseDtos);
     }
 
     @GetMapping("/{ticketId}")
-    public ResponseEntity<GetTicketResponseDto> getTicket(@PathVariable UUID ticketId, JwtAuthenticationToken authentication) {
+    @PreAuthorize("hasRole('PASSENGER')")
+    public ResponseEntity<GetTicketResponseDto> getTicket(@PathVariable UUID ticketId) {
         log.info("Lấy vé ID: {}", ticketId);
-        Jwt jwt = (Jwt) authentication.getPrincipal();
-        UUID userId = UUID.fromString(jwt.getSubject());
-        Optional<Ticket> optionalTicket = ticketService.getTicketForUser(ticketId, userId);
+        User currentUser = getAuthenticatedUser();
+        Optional<Ticket> optionalTicket = ticketService.getTicketForUser(ticketId, currentUser.getId());
         return optionalTicket.map(ticketMapper::toGetTicketResponseDto)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("/{ticketId}/qrcodes")
-    public ResponseEntity<byte[]> getTicketQRCode(@PathVariable UUID ticketId, JwtAuthenticationToken authentication) {
+    @PreAuthorize("hasRole('PASSENGER')")
+    public ResponseEntity<byte[]> getTicketQRCode(@PathVariable UUID ticketId) {
         log.info("Lấy QR cho vé ID: {}", ticketId);
-        Jwt jwt = (Jwt) authentication.getPrincipal();
-        UUID userId = UUID.fromString(jwt.getSubject());
-        byte[] qrCodeImage = qrCodeService.getQRCodeImageForUserAndTicket(userId, ticketId);
+        User currentUser = getAuthenticatedUser();
+        byte[] qrCodeImage = qrCodeService.getQRCodeImageForUserAndTicket(currentUser.getId(), ticketId);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.IMAGE_PNG);
         headers.setContentLength(qrCodeImage.length);

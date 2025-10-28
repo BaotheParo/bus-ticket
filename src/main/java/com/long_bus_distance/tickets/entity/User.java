@@ -1,5 +1,6 @@
 package com.long_bus_distance.tickets.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -7,12 +8,14 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "users")
@@ -20,8 +23,9 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class User {
+public class User implements UserDetails {
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
@@ -29,7 +33,8 @@ public class User {
     private String username;
 
     @Column(name = "password", nullable = false)
-    private String password;  // Không dùng vì Keycloak handle, nhưng giữ cho JPA
+    @JsonIgnore
+    private String password;
 
     @Column(name = "firstname", nullable = false)
     private String firstname;
@@ -37,14 +42,18 @@ public class User {
     @Column(name = "lastname", nullable = false)
     private String lastname;
 
-    @Column(name = "date_of_birth", nullable = false)
-    private LocalDate dateOfBirth;  // Default hoặc null nếu không có từ JWT
+    @Column(name = "date_of_birth")
+    private LocalDate dateOfBirth;
 
     @Column(name = "email", unique = true, nullable = false)
     private String email;
 
-    // Relations (thêm sau khi có Trip)
+    @Column(name = "roles", nullable = false)
+    private String roles;
+
+    // Relations
     @OneToMany(mappedBy = "operator", cascade = CascadeType.ALL)
+    @JsonIgnore
     private List<Trip> organizedTrips;
 
     @ManyToMany
@@ -53,6 +62,7 @@ public class User {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "trip_id")
     )
+    @JsonIgnore
     private List<Trip> bookedTrips;
 
     @ManyToMany
@@ -61,6 +71,7 @@ public class User {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "trip_id")
     )
+    @JsonIgnore
     private List<Trip> staffingTrips;
 
     @CreatedDate
@@ -72,15 +83,42 @@ public class User {
     private LocalDateTime updatedAt;
 
     @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return Arrays.stream(roles.split(","))
+                .map(SimpleGrantedAuthority::new)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         User user = (User) o;
-        return Objects.equals(id, user.id) && Objects.equals(username, user.username) && Objects.equals(email, user.email);
+        return Objects.equals(id, user.id);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, username, email);
+        return Objects.hash(id);
     }
 }
