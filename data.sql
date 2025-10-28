@@ -19,7 +19,9 @@ ADD COLUMN IF NOT EXISTS sale_end TIMESTAMP WITHOUT TIME ZONE NULL;   -- Cho ph�
 
 -- Thêm cột cho bảng users nếu chưa có, cho phép NULL ban đầu để tránh lỗi
 ALTER TABLE users
-ADD COLUMN IF NOT EXISTS roles VARCHAR(255) NULL; -- Bỏ NOT NULL và DEFAULT ở đây
+ADD COLUMN IF NOT EXISTS roles VARCHAR(255) NULL,
+ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN IF NOT EXISTS managed_by_operator_id UUID NULL;
 
 -- Thêm bảng token_storage nếu chưa có (Hibernate có thể tự tạo, nhưng thêm cho chắc)
 CREATE TABLE IF NOT EXISTS token_storage (
@@ -45,17 +47,19 @@ INSERT INTO bus_types (id, created_at, description, is_default, "name", num_deck
 -- !!! QUAN TRỌNG: Thay thế 'HASHED_PASSWORD_PLACEHOLDER' BẰNG HASH THỰC TẾ !!!
 -- (Ví dụ hash BCrypt của 'password' là '$2a$10$9SEWq.Qk78XkS2wP3R4iL.b6z.q3c6t8j9K/L.mN0p1qR2sT3uW4.')
 -- =================================================================
-INSERT INTO users (id, created_at, date_of_birth, email, firstname, lastname, "password", updated_at, username, managed_by_operator_id, roles) VALUES
+INSERT INTO users (id, created_at, date_of_birth, email, firstname, lastname, "password", updated_at, username, managed_by_operator_id, roles, is_active) VALUES
+-- --- THÊM MỚI: ADMIN ---
+('a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1', NOW(), '1980-01-01', 'admin@busticket.com', 'Super', 'Admin', '$2a$10$BskVFJsA2U3gfVCEd8s/rOwjX77NoQdi/gMI3sCczBWuxhoNGGG2y', NOW(), 'admin', NULL, 'ROLE_ADMIN', true),
 -- Operators
-('8a8f8e8a-8e8e-8e8e-8e8e-8e8e8e8e8e8a',	NOW(), '1990-01-15', 'operator.phuongtrang@example.com', 'Phương', 'Trang', '$2a$10$BskVFJsA2U3gfVCEd8s/rOwjX77NoQdi/gMI3sCczBWuxhoNGGG2y', NOW(), 'operator_phuongtrang', NULL, 'ROLE_OPERATOR'),
-('8b8f8e8a-8e8e-8e8e-8e8e-8e8e8e8e8e8b',	NOW(), '1985-05-20', 'operator.thanhbuoi@example.com',   'Thành',  'Bưởi',  '$2a$10$BskVFJsA2U3gfVCEd8s/rOwjX77NoQdi/gMI3sCczBWuxhoNGGG2y', NOW(), 'operator_thanhbuoi',  NULL, 'ROLE_OPERATOR'),
--- Staff
-('9a9f9e9a-9e9e-9e9e-9e9e-9e9e9e9e9e9a',	NOW(), '1995-03-10', 'staff.vana@example.com',           'Văn',    'A',     '$2a$10$BskVFJsA2U3gfVCEd8s/rOwjX77NoQdi/gMI3sCczBWuxhoNGGG2y', NOW(), 'staff_van_a',         '8a8f8e8a-8e8e-8e8e-8e8e-8e8e8e8e8e8a', 'ROLE_STAFF'),
-('9b9f9e9a-9e9e-9e9e-9e9e-9e9e9e9e9e9b',	NOW(), '1998-11-25', 'staff.thib@example.com',           'Thị',    'B',     '$2a$10$BskVFJsA2U3gfVCEd8s/rOwjX77NoQdi/gMI3sCczBWuxhoNGGG2y', NOW(), 'staff_thi_b',         '8a8f8e8a-8e8e-8e8e-8e8e-8e8e8e8e8e8a', 'ROLE_STAFF'),
-('9c9f9e9a-9e9e-9e9e-9e9e-9e9e9e9e9e9c',	NOW(), '1992-07-01', 'staff.vanc@example.com',           'Văn',    'C',     '$2a$10$BskVFJsA2U3gfVCEd8s/rOwjX77NoQdi/gMI3sCczBWuxhoNGGG2y', NOW(), 'staff_van_c',         '8b8f8e8a-8e8e-8e8e-8e8e-8e8e8e8e8e8b', 'ROLE_STAFF'),
+('8a8f8e8a-8e8e-8e8e-8e8e-8e8e8e8e8e8a',	NOW(), '1990-01-15', 'operator.phuongtrang@example.com', 'Phương', 'Trang', '$2a$10$BskVFJsA2U3gfVCEd8s/rOwjX77NoQdi/gMI3sCczBWuxhoNGGG2y', NOW(), 'operator_phuongtrang', NULL, 'ROLE_OPERATOR', true),
+('8b8f8e8a-8e8e-8e8e-8e8e-8e8e8e8e8e8b',	NOW(), '1985-05-20', 'operator.thanhbuoi@example.com',   'Thành',  'Bưởi',  '$2a$10$BskVFJsA2U3gfVCEd8s/rOwjX77NoQdi/gMI3sCczBWuxhoNGGG2y', NOW(), 'operator_thanhbuoi',  NULL, 'ROLE_OPERATOR', true),
+-- Staff (Cập nhật có managed_by_operator_id)
+('9a9f9e9a-9e9e-9e9e-9e9e-9e9e9e9e9e9a',	NOW(), '1995-03-10', 'staff.vana@example.com',           'Văn',    'A',     '$2a$10$BskVFJsA2U3gfVCEd8s/rOwjX77NoQdi/gMI3sCczBWuxhoNGGG2y', NOW(), 'staff_van_a',         '8a8f8e8a-8e8e-8e8e-8e8e-8e8e8e8e8e8a', 'ROLE_STAFF', true),
+('9b9f9e9a-9e9e-9e9e-9e9e-9e9e9e9e9e9b',	NOW(), '1998-11-25', 'staff.thib@example.com',           'Thị',    'B',     '$2a$10$BskVFJsA2U3gfVCEd8s/rOwjX77NoQdi/gMI3sCczBWuxhoNGGG2y', NOW(), 'staff_thi_b',         '8a8f8e8a-8e8e-8e8e-8e8e-8e8e8e8e8e8a', 'ROLE_STAFF', true),
+('9c9f9e9a-9e9e-9e9e-9e9e-9e9e9e9e9e9c',	NOW(), '1992-07-01', 'staff.vanc@example.com',           'Văn',    'C',     '$2a$10$BskVFJsA2U3gfVCEd8s/rOwjX77NoQdi/gMI3sCczBWuxhoNGGG2y', NOW(), 'staff_van_c',         '8b8f8e8a-8e8e-8e8e-8e8e-8e8e8e8e8e8b', 'ROLE_STAFF', true),
 -- Passengers
-('1a1f1e1a-1e1e-1e1e-1e1e-1e1e1e1e1e1a',	NOW(), '2000-08-08', 'passenger.minh@example.com',       'Thanh',  'Minh',  '$2a$10$BskVFJsA2U3gfVCEd8s/rOwjX77NoQdi/gMI3sCczBWuxhoNGGG2y', NOW(), 'passenger_minh',      NULL, 'ROLE_PASSENGER'),
-('1b1f1e1a-1e1e-1e1e-1e1e-1e1e1e1e1e1b',	NOW(), '2001-09-09', 'passenger.hoa@example.com',        'Lan',    'Hoa',   '$2a$10$BskVFJsA2U3gfVCEd8s/rOwjX77NoQdi/gMI3sCczBWuxhoNGGG2y', NOW(), 'passenger_hoa',       NULL, 'ROLE_PASSENGER');
+('1a1f1e1a-1e1e-1e1e-1e1e-1e1e1e1e1e1a',	NOW(), '2000-08-08', 'passenger.minh@example.com',       'Thanh',  'Minh',  '$2a$10$BskVFJsA2U3gfVCEd8s/rOwjX77NoQdi/gMI3sCczBWuxhoNGGG2y', NOW(), 'passenger_minh',      NULL, 'ROLE_PASSENGER', true),
+('1b1f1e1a-1e1e-1e1e-1e1e-1e1e1e1e1e1b',	NOW(), '2001-09-09', 'passenger.hoa@example.com',        'Lan',    'Hoa',   '$2a$10$BskVFJsA2U3gfVCEd8s/rOwjX77NoQdi/gMI3sCczBWuxhoNGGG2y', NOW(), 'passenger_hoa',       NULL, 'ROLE_PASSENGER', true);
 
 -- Cập nhật roles cho các user hiện có (để đảm bảo không null nếu ALTER TABLE chạy sau INSERT)
 UPDATE users SET roles = 'ROLE_OPERATOR' WHERE id IN ('8a8f8e8a-8e8e-8e8e-8e8e-8e8e8e8e8e8a', '8b8f8e8a-8e8e-8e8e-8e8e-8e8e8e8e8e8b');

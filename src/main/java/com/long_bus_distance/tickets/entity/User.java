@@ -51,6 +51,14 @@ public class User implements UserDetails {
     @Column(name = "roles", nullable = false)
     private String roles;
 
+    @Column(name = "is_active", nullable = false)
+    private boolean isActive = true; // Mặc định là true khi tạo mới
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "managed_by_operator_id")
+    @JsonIgnore // Tránh vòng lặp JSON khi trả về
+    private User managedByOperator; // Chỉ có giá trị khi user là STAFF
+
     // Relations
     @OneToMany(mappedBy = "operator", cascade = CascadeType.ALL)
     @JsonIgnore
@@ -94,10 +102,13 @@ public class User implements UserDetails {
         return true;
     }
 
+    // --- CẬP NHẬT MỚI ---
+    // Phương thức này giờ sẽ kiểm tra trạng thái active của tài khoản
     @Override
     public boolean isAccountNonLocked() {
-        return true;
+        return this.isActive;
     }
+    // --- KẾT THÚC CẬP NHẬT ---
 
     @Override
     public boolean isCredentialsNonExpired() {
