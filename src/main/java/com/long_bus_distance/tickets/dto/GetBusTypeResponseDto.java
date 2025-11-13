@@ -1,6 +1,5 @@
 package com.long_bus_distance.tickets.dto;
 
-import com.long_bus_distance.tickets.entity.Deck;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -19,5 +18,5 @@ public class GetBusTypeResponseDto {
     private Integer seatsPerDeck;
     private Double priceFactor;
     private Boolean isDefault;
-    private List<Deck> defaultDecks;  // Bao gồm decks với priceFactor và totalSeats
+    private List<DeckResponseDto> defaultDecks;  // Bao gồm decks với priceFactor và totalSeats
 }

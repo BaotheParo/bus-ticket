@@ -1,8 +1,10 @@
 package com.long_bus_distance.tickets.controller;
 
 import com.long_bus_distance.tickets.dto.CreateBusTypeRequestDto;
+import com.long_bus_distance.tickets.dto.GetBusTypeResponseDto;
 import com.long_bus_distance.tickets.dto.UpdateBusTypeRequestDto;
 import com.long_bus_distance.tickets.entity.BusType;
+import com.long_bus_distance.tickets.mapper.BusTypeMapper;
 import com.long_bus_distance.tickets.services.BusTypeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,36 +22,45 @@ import java.util.UUID;
 @Slf4j
 public class BusTypeController {
     private final BusTypeService busTypeService;
+    private final BusTypeMapper busTypeMapper;
 
     @PostMapping
     @PreAuthorize("hasRole('OPERATOR')")
-    public ResponseEntity<BusType> createBusType(@Valid @RequestBody CreateBusTypeRequestDto dto) {
+    // Sửa kiểu trả về từ BusType sang DTO
+    public ResponseEntity<GetBusTypeResponseDto> createBusType(@Valid @RequestBody CreateBusTypeRequestDto dto) {
         log.info("Nhận request tạo BusType: {}", dto.getName());
         BusType busType = busTypeService.createBusType(dto);
-        return ResponseEntity.ok(busType);
+        // Chuyển đổi sang DTO trước khi trả về
+        return ResponseEntity.ok(busTypeMapper.toDto(busType));
     }
 
     @GetMapping
-    public ResponseEntity<List<BusType>> listBusTypes() {
+    // Sửa kiểu trả về từ List<BusType> sang List<DTO>
+    public ResponseEntity<List<GetBusTypeResponseDto>> listBusTypes() {
         log.info("Liệt kê BusTypes");
         List<BusType> busTypes = busTypeService.listBusTypes();
-        return ResponseEntity.ok(busTypes);
+        // Chuyển đổi List sang DTO
+        return ResponseEntity.ok(busTypeMapper.toDtoList(busTypes));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<BusType> getBusType(@PathVariable UUID id) {
+    // Sửa kiểu trả về từ BusType sang DTO
+    public ResponseEntity<GetBusTypeResponseDto> getBusType(@PathVariable UUID id) {
         log.info("Lấy BusType ID: {}", id);
         return busTypeService.getById(id)
+                .map(busTypeMapper::toDto) // Dùng mapper để chuyển đổi
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('OPERATOR')")
-    public ResponseEntity<BusType> updateBusType(@PathVariable UUID id, @Valid @RequestBody UpdateBusTypeRequestDto dto) {
+    // Sửa kiểu trả về từ BusType sang DTO
+    public ResponseEntity<GetBusTypeResponseDto> updateBusType(@PathVariable UUID id, @Valid @RequestBody UpdateBusTypeRequestDto dto) {
         log.info("Nhận request cập nhật BusType ID: {}", id);
         BusType busType = busTypeService.updateBusType(id, dto);
-        return ResponseEntity.ok(busType);
+        // Chuyển đổi sang DTO trước khi trả về
+        return ResponseEntity.ok(busTypeMapper.toDto(busType));
     }
 
     @DeleteMapping("/{id}")
