@@ -1,6 +1,7 @@
 package com.long_bus_distance.tickets.services.impl;
 
 import com.long_bus_distance.tickets.entity.*;
+import com.long_bus_distance.tickets.exception.TicketNotFoundException;
 import com.long_bus_distance.tickets.exception.TicketSoldOutException;
 import com.long_bus_distance.tickets.exception.UserNotFoundException;
 import com.long_bus_distance.tickets.repository.DeckRepository;
@@ -9,13 +10,18 @@ import com.long_bus_distance.tickets.repository.TripRepository;
 import com.long_bus_distance.tickets.repository.UserRepository;
 import com.long_bus_distance.tickets.services.QRCodeService;
 import com.long_bus_distance.tickets.services.TicketService;
+import jakarta.persistence.criteria.Predicate;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import java.nio.file.AccessDeniedException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -101,5 +107,98 @@ public class TicketServiceImpl implements TicketService {
     public Optional<Ticket> getTicketForUser(UUID ticketId, UUID userId) {
         log.info("Lấy vé ID: {} cho user: {}", ticketId, userId);
         return ticketRepository.findByIdAndPurchaserId(ticketId, userId);
+    }
+
+    @Override
+    public Page<Ticket> listAllTickets(Optional<UUID> tripId, Optional<String> userEmail, Optional<String> status, Pageable pageable) {
+        log.info("Admin listing all tickets with filters: tripId={}, userEmail={}, status={}", tripId, userEmail, status);
+        Specification<Ticket> spec = createTicketSpecification(tripId, userEmail, status, Optional.empty());
+        return ticketRepository.findAll(spec, pageable);
+    }
+
+    @Override
+    public Page<Ticket> listTicketsForOperator(UUID operatorId, Optional<UUID> tripId, Optional<String> userEmail, Optional<String> status, Pageable pageable) {
+        log.info("Operator {} listing tickets with filters: tripId={}, userEmail={}, status={}", operatorId, tripId, userEmail, status);
+        // Tạo spec với bộ lọc
+        Specification<Ticket> spec = createTicketSpecification(tripId, userEmail, status, Optional.of(operatorId));
+        return ticketRepository.findAll(spec, pageable);
+    }
+
+    /**
+     * Helper private để xây dựng Specification cho việc lọc vé.
+     */
+    private Specification<Ticket> createTicketSpecification(Optional<UUID> tripId, Optional<String> userEmail, Optional<String> status, Optional<UUID> operatorId) {
+
+        return (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // Lọc theo operatorId (join qua Deck -> Trip)
+            operatorId.ifPresent(opId -> {
+                predicates.add(criteriaBuilder.equal(root.get("deck").get("trip").get("operator").get("id"), opId));
+            });
+
+            // Lọc theo tripId (join qua Deck)
+            tripId.ifPresent(tId -> {
+                predicates.add(criteriaBuilder.equal(root.get("deck").get("trip").get("id"), tId));
+            });
+
+            // Lọc theo email người mua (join qua User)
+            userEmail.ifPresent(email -> {
+                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("purchaser").get("email")), "%" + email.toLowerCase() + "%"));
+            });
+
+            // Lọc theo trạng thái vé
+            status.ifPresent(s -> {
+                try {
+                    TicketStatusEnum statusEnum = TicketStatusEnum.valueOf(s.toUpperCase());
+                    predicates.add(criteriaBuilder.equal(root.get("status"), statusEnum));
+                } catch (IllegalArgumentException e) {
+                    // Bỏ qua nếu status không hợp lệ
+                    log.warn("Invalid status filter ignored: {}", s);
+                }
+            });
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    @Override
+    public Ticket getTicketDetailsForAdminOrOperator(UUID ticketId, User currentUser) throws TicketNotFoundException, AccessDeniedException {
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new TicketNotFoundException("Ticket not found with ID: " + ticketId));
+
+        // Nếu là Operator, phải kiểm tra quyền sở hữu
+        if (currentUser.getRoles().contains("ROLE_OPERATOR")) {
+            checkOperatorTicketOwnership(ticket, currentUser.getId());
+        }
+
+        // Admin có thể xem mọi vé
+        return ticket;
+    }
+
+    @Override
+    @Transactional
+    public Ticket cancelTicketForAdminOrOperator(UUID ticketId, User currentUser) throws TicketNotFoundException, AccessDeniedException {
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new TicketNotFoundException("Ticket not found with ID:"+ "Ex" + ticketId));
+
+                        // Nếu là Operator, phải kiểm tra quyền sở hữu
+        if (currentUser.getRoles().contains("ROLE_OPERATOR")) {
+            checkOperatorTicketOwnership(ticket, currentUser.getId());
+        }
+
+        log.info("Cancelling ticket {} by user {}", ticketId, currentUser.getUsername());
+        ticket.setStatus(TicketStatusEnum.CANCELLED);
+        // (Trong một dự án thực tế, ở đây có thể thêm logic hoàn tiền, v.v.)
+
+        return ticketRepository.save(ticket);
+    }
+
+    private void checkOperatorTicketOwnership(Ticket ticket, UUID operatorId) throws AccessDeniedException {
+        Trip trip = ticket.getDeck().getTrip();
+        if (trip == null || trip.getOperator() == null || !trip.getOperator().getId().equals(operatorId)) {
+            log.warn("Operator {} attempted to access ticket {} without ownership.", operatorId, ticket.getId());
+            throw new AccessDeniedException("You do not have permission to access this ticket.");
+        }
     }
 }

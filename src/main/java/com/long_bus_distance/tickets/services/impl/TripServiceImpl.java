@@ -271,4 +271,18 @@ public class TripServiceImpl implements TripService {
             return dto;
         });
     }
+
+    @Override
+    public Page<Trip> listAllTripsForAdmin(Pageable pageable) {
+        log.info("Admin listing all trips");
+        // Đơn giản là gọi findAll, không lọc theo operator
+        return tripRepository.findAll(pageable);
+    }
+
+    @Override
+    public Optional<Trip> getTripForAdmin(UUID id) {
+        log.info("Admin getting trip ID: {}", id);
+        // Đơn giản là gọi findById, không lọc theo operator
+        return tripRepository.findById(id);
+    }
 }

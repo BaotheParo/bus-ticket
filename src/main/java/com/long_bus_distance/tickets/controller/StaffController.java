@@ -6,6 +6,8 @@ import com.long_bus_distance.tickets.entity.User;
 import com.long_bus_distance.tickets.services.StaffService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,6 +16,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -38,10 +41,17 @@ public class StaffController {
     }
 
     @GetMapping
-    public ResponseEntity<List<User>> getMyStaff() {
+    // CẬP NHẬT: Thay đổi hoàn toàn endpoint này
+    public ResponseEntity<Page<User>> getMyStaff(
+            @RequestParam(name = "isActive", required = false) Optional<Boolean> isActive,
+            @RequestParam(name = "search", required = false) Optional<String> search,
+            Pageable pageable) {
+
         User operator = getAuthenticatedOperator();
-        List<User> staffList = staffService.getStaffForOperator(operator.getId());
-        return ResponseEntity.ok(staffList);
+        Page<User> staffPage = staffService.getStaffForOperator(
+                operator.getId(), isActive, search, pageable
+        );
+        return ResponseEntity.ok(staffPage);
     }
 
     @GetMapping("/{staffId}")

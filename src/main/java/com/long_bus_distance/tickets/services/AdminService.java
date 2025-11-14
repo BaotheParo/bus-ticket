@@ -9,7 +9,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface AdminService {
-    Page<UserResponseDto> listUsers(Optional<String> role, Pageable pageable);
+    Page<UserResponseDto> listUsers(
+            Optional<String> role,
+            Optional<Boolean> isActive,
+            Optional<String> search,
+            Pageable pageable);
     UserResponseDto getUserDetails(UUID userId);
     void toggleUserStatus(UUID userId, boolean status);
 }

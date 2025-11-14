@@ -25,4 +25,6 @@ public interface TripService {
     Page<ListPublishedTripResponseDto> searchPublishedTrips(
             String departurePoint, String destination, String departureDateStr, int numTickets,
             String timeSlot, String busType, String deckLabel, Pageable pageable);
+    Page<Trip> listAllTripsForAdmin(Pageable pageable);
+    Optional<Trip> getTripForAdmin(UUID id);
 }

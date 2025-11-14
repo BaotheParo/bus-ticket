@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.UUID;
 import java.util.Optional;
 
@@ -130,4 +131,14 @@ public interface TripRepository extends JpaRepository<Trip, UUID> {
             @Param("busTypes") String busTypes,
             @Param("deckLabels") String deckLabels,
             Pageable pageable);
+
+    // (OPERATOR) Đếm số chuyến xe (trong khoảng thời gian KHỞI HÀNH)
+    @Query("SELECT COUNT(t) FROM Trip t " +
+            "WHERE t.operator.id = :operatorId AND t.departureTime BETWEEN :start AND :end")
+    Long countTripsForOperatorBetweenDates(@Param("operatorId") UUID operatorId, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    // (OPERATOR) Lấy tổng số ghế (để tính tỷ lệ lấp đầy)
+    @Query("SELECT COALESCE(SUM(d.totalSeats), 0) FROM Deck d JOIN d.trip t " +
+            "WHERE t.operator.id = :operatorId AND t.departureTime BETWEEN :start AND :end")
+    Long getTotalSeatsForOperatorTrips(@Param("operatorId") UUID operatorId, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }

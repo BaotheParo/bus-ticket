@@ -6,13 +6,19 @@ import com.long_bus_distance.tickets.entity.User;
 import com.long_bus_distance.tickets.exception.BusTicketException;
 import com.long_bus_distance.tickets.repository.UserRepository;
 import com.long_bus_distance.tickets.services.StaffService;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -50,8 +56,42 @@ public class StaffServiceImpl implements StaffService {
     }
 
     @Override
-    public List<User> getStaffForOperator(UUID operatorId) {
-        return userRepository.findAllByManagedByOperatorId(operatorId);
+    // CẬP NHẬT: Triển khai logic lọc và phân trang
+    public Page<User> getStaffForOperator(
+            UUID operatorId,
+            Optional<Boolean> isActive,
+            Optional<String> search,
+            Pageable pageable) {
+
+        Specification<User> spec = (root, query, criteriaBuilder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // 1. (QUAN TRỌNG) Lọc theo Operator ID
+            predicates.add(criteriaBuilder.equal(
+                    root.get("managedByOperator").get("id"), operatorId)
+            );
+
+            // 2. Lọc theo Trạng thái (isActive)
+            isActive.ifPresent(status -> predicates.add(
+                    criteriaBuilder.equal(root.get("isActive"), status))
+            );
+
+            // 3. Lọc Tìm kiếm (search)
+            search.ifPresent(searchTerm -> {
+                String likePattern = "%" + searchTerm.toLowerCase() + "%";
+                Predicate searchOr = criteriaBuilder.or(
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("username")), likePattern),
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("firstname")), likePattern),
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("lastname")), likePattern),
+                        criteriaBuilder.like(criteriaBuilder.lower(root.get("email")), likePattern)
+                );
+                predicates.add(searchOr);
+            });
+
+            return criteriaBuilder.and(predicates.toArray(new Predicate[0]));
+        };
+
+        return userRepository.findAll(spec, pageable);
     }
 
     @Override
