@@ -44,13 +44,22 @@ public class TicketController {
 
     @PostMapping
     @PreAuthorize("hasRole('PASSENGER')")
-    public ResponseEntity<GetTicketResponseDto> purchaseTicket(
+    // Sửa return type thành String hoặc DTO chứa URL
+    public ResponseEntity<String> purchaseTicket(
             @Valid @RequestBody PurchaseTicketRequestDto requestDto) {
-        log.info("Nhận request mua vé cho trip {}, deck {}", requestDto.getTripId(), requestDto.getDeckId());
+        log.info("Nhận request mua vé...");
         User currentUser = getAuthenticatedUser();
-        Ticket ticket = ticketService.purchaseTicket(currentUser.getId(), requestDto.getTripId(), requestDto.getDeckId(), requestDto.getSelectedSeat());
-        GetTicketResponseDto responseDto = ticketMapper.toGetTicketResponseDto(ticket);
-        return ResponseEntity.ok(responseDto);
+
+        // Gọi service, nhận về URL
+        String paymentUrl = ticketService.purchaseTicket(
+                currentUser.getId(),
+                requestDto.getTripId(),
+                requestDto.getDeckId(),
+                requestDto.getSelectedSeat()
+        );
+
+        // Trả về URL để Frontend redirect
+        return ResponseEntity.ok(paymentUrl);
     }
 
     @GetMapping

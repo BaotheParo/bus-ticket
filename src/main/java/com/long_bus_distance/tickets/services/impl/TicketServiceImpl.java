@@ -10,6 +10,7 @@ import com.long_bus_distance.tickets.repository.TripRepository;
 import com.long_bus_distance.tickets.repository.UserRepository;
 import com.long_bus_distance.tickets.services.QRCodeService;
 import com.long_bus_distance.tickets.services.TicketService;
+import com.long_bus_distance.tickets.services.VNPayService;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -35,9 +36,11 @@ public class TicketServiceImpl implements TicketService {
     private final TicketRepository ticketRepository;
     private final QRCodeService qrCodeService;
 
+    private final VNPayService vnPayService;
+
     @Override
     @Transactional
-    public Ticket purchaseTicket(UUID userId, UUID tripId, UUID deckId, String selectedSeatPos) {
+    public String purchaseTicket(UUID userId, UUID tripId, UUID deckId, String selectedSeatPos) {
         log.info("Mua vé cho user {}, trip {}, deck {}, pos {}", userId, tripId, deckId, selectedSeatPos);
 
         // Tìm user
@@ -77,12 +80,21 @@ public class TicketServiceImpl implements TicketService {
             throw new TicketSoldOutException("Tầng " + deck.getLabel() + " đã hết chỗ");
         }
 
+        long seatOccupied = ticketRepository.countByTripIdAndDeckIdAndSelectedSeatAndStatusIn(
+                tripId, deckId, fullSeat,
+                List.of(TicketStatusEnum.PURCHASED, TicketStatusEnum.PENDING_PAYMENT) // Check cả 2 trạng thái
+        );
+
+        if (seatOccupied > 0) {
+            throw new TicketSoldOutException("Ghế " + fullSeat + " đã được đặt hoặc đang chờ thanh toán.");
+        }
+
         // Tính price
         double price = trip.getBasePrice() * deck.getPriceFactor();
 
         // Tạo Ticket
         Ticket ticket = new Ticket();
-        ticket.setStatus(TicketStatusEnum.PURCHASED);
+        ticket.setStatus(TicketStatusEnum.PENDING_PAYMENT);
         ticket.setPrice(price);
         ticket.setSelectedSeat(fullSeat);
         ticket.setDeck(deck);
@@ -91,10 +103,10 @@ public class TicketServiceImpl implements TicketService {
         Ticket savedTicket = ticketRepository.save(ticket);
         log.info("Tạo thành công Ticket ID: {} cho ghế {}", savedTicket.getId(), fullSeat);
 
-        // Tạo QRCode (content include fullSeat)
-        qrCodeService.generateQRCode(savedTicket);
+        String paymentUrl = vnPayService.createPaymentUrl(savedTicket);
 
-        return savedTicket;
+        log.info("Vé ID: {} đang chờ thanh toán. URL: {}", savedTicket.getId(), paymentUrl);
+        return paymentUrl;
     }
 
     @Override
@@ -192,6 +204,29 @@ public class TicketServiceImpl implements TicketService {
         // (Trong một dự án thực tế, ở đây có thể thêm logic hoàn tiền, v.v.)
 
         return ticketRepository.save(ticket);
+    }
+
+    @Override
+    @Transactional
+    public void processPaymentCallback(String ticketIdStr, String responseCode) {
+        UUID ticketId = UUID.fromString(ticketIdStr);
+        Ticket ticket = ticketRepository.findById(ticketId)
+                .orElseThrow(() -> new TicketNotFoundException("Vé không tồn tại"));
+
+        if ("00".equals(responseCode)) { // 00 là thành công của VNPay
+            if (ticket.getStatus() == TicketStatusEnum.PENDING_PAYMENT) {
+                ticket.setStatus(TicketStatusEnum.PURCHASED);
+                ticketRepository.save(ticket);
+
+                // Thanh toán xong mới tạo QR
+                qrCodeService.generateQRCode(ticket);
+                log.info("Thanh toán thành công vé ID: {}", ticketId);
+            }
+        } else {
+            ticket.setStatus(TicketStatusEnum.FAILED);
+            ticketRepository.save(ticket);
+            log.warn("Thanh toán thất bại vé ID: {}", ticketId);
+        }
     }
 
     private void checkOperatorTicketOwnership(Ticket ticket, UUID operatorId) throws AccessDeniedException {
