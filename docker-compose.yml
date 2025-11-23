@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # Service DB hiện tại của bạn
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: busplatform_be # Hoặc tên bạn đang đặt
+    environment:
+      POSTGRES_DB: busplatform_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - busplatform_network
+
+  # Service Adminer hiện tại của bạn
+  adminer:
+    image: adminer:latest
+    container_name: busplatform_adminer
+    ports:
+      - "8888:8080"
+    networks:
+      - busplatform_network
+
+  # --- THÊM PHẦN NÀY (REDIS) ---
+  redis:
+    image: redis:7.2-alpine
+    container_name: busplatform_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - busplatform_network
+  # -----------------------------
+
+volumes:
+  postgres_data:
+
+networks:
+  busplatform_network:
+    driver: bridge

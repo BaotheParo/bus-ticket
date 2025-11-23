@@ -22,6 +22,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import com.long_bus_distance.tickets.repository.DeckRepository;  // Để deleteAll
+import java.sql.Timestamp;
 
 // Và inject private final DeckRepository deckRepository; trong constructor (RequiredArgsConstructor sẽ auto)
 import java.time.LocalDate;
@@ -96,6 +97,7 @@ public class TripServiceImpl implements TripService {
     @Override
     @Transactional
     public Trip updateTripForOperator(UUID operatorId, UUID id, UpdateTripRequest request) {
+        log.info("Cập nhật Trip -> Xóa toàn bộ cache tìm kiếm");
         log.info("Cập nhật Trip ID: {} cho operator: {}", id, operatorId);
         Trip trip = tripRepository.findByIdAndOperatorId(id, operatorId)
                 .orElseThrow(() -> new TripNotFoundException("Trip không tìm thấy"));
@@ -208,7 +210,7 @@ public class TripServiceImpl implements TripService {
     public Page<ListPublishedTripResponseDto> searchPublishedTrips(
             String departurePoint, String destination, String departureDateStr, int numTickets,
             String timeSlot, String busType, String deckLabel, Pageable pageable) {
-
+        log.info("CACHE MISS - Đang truy vấn Database để tìm chuyến xe...");
         // Validate primary params (bắt buộc)
         if (departurePoint == null || departurePoint.trim().isEmpty() ||
                 destination == null || destination.trim().isEmpty() ||
@@ -258,16 +260,20 @@ public class TripServiceImpl implements TripService {
                     departurePoint.trim(), destination.trim(), departureDate, numTickets, pageable);
         }
 
-        // Map to DTO: SỬA Ở ĐÂY - Dùng no-arg constructor + setters (vì @Data cung cấp setters)
         return results.map(row -> {
-            ListPublishedTripResponseDto dto = new ListPublishedTripResponseDto();  // No-arg constructor
+            ListPublishedTripResponseDto dto = new ListPublishedTripResponseDto();
             dto.setId((UUID) row[0]);
             dto.setRouteName((String) row[1]);
-            dto.setDepartureTime((LocalDateTime) row[2]);
+            if (row[2] != null) {
+                dto.setDepartureTime(((Timestamp) row[2]).toLocalDateTime());
+            }
             dto.setDeparturePoint((String) row[3]);
-            dto.setArrivalTime((LocalDateTime) row[4]);
+            if (row[4] != null) {
+                dto.setArrivalTime(((Timestamp) row[4]).toLocalDateTime());
+            }
             dto.setDestination((String) row[5]);
-            dto.setTotalAvailableSeats(((Number) row[6]).intValue());  // Cast Number to int (từ query alias)
+            dto.setTotalAvailableSeats(row[6] != null ? ((Number) row[6]).intValue() : 0);
+
             return dto;
         });
     }

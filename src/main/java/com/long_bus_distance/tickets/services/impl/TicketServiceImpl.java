@@ -1,6 +1,7 @@
 package com.long_bus_distance.tickets.services.impl;
 
 import com.long_bus_distance.tickets.entity.*;
+import com.long_bus_distance.tickets.exception.BusTicketException;
 import com.long_bus_distance.tickets.exception.TicketNotFoundException;
 import com.long_bus_distance.tickets.exception.TicketSoldOutException;
 import com.long_bus_distance.tickets.exception.UserNotFoundException;
@@ -15,6 +16,9 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -25,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -36,77 +41,83 @@ public class TicketServiceImpl implements TicketService {
     private final TicketRepository ticketRepository;
     private final QRCodeService qrCodeService;
 
+    private final RedissonClient redissonClient;
+
     private final VNPayService vnPayService;
 
     @Override
     @Transactional
+    @CacheEvict(value = "trips", allEntries = true) // <--- Xóa cache tìm kiếm khi có vé mới được bán
     public String purchaseTicket(UUID userId, UUID tripId, UUID deckId, String selectedSeatPos) {
-        log.info("Mua vé cho user {}, trip {}, deck {}, pos {}", userId, tripId, deckId, selectedSeatPos);
-
-        // Tìm user
+        // 1. Validate cơ bản (User, Trip, Deck tồn tại?)
+        // Logic này giữ nguyên để fail-fast (lỗi nhanh) trước khi tốn công lock
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User không tìm thấy: " + userId));
-
-        // Tìm trip và deck
-        Trip trip = tripRepository.findById(tripId)
-                .orElseThrow(() -> new TicketSoldOutException("Trip không tìm thấy"));
         Deck deck = deckRepository.findById(deckId)
                 .orElseThrow(() -> new TicketSoldOutException("Deck không tìm thấy"));
-        if (!deck.getTrip().getId().equals(tripId)) {
-            throw new IllegalArgumentException("Deck không thuộc Trip");
-        }
 
-        // Normalize selectedSeat
-        String fullSeat = deck.getLabel() + selectedSeatPos;  // "B" + "2" = "B2"
-        int pos;
+        // 2. CHUẨN BỊ KHÓA (LOCK)
+        // Key lock phải thật cụ thể: trip + deck + seat
+        String fullSeat = deck.getLabel() + selectedSeatPos;
+        String lockKey = "lock:ticket:trip:" + tripId + ":deck:" + deckId + ":seat:" + fullSeat;
+
+        RLock lock = redissonClient.getLock(lockKey);
+
         try {
-            pos = Integer.parseInt(selectedSeatPos);
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Selected seat phải là số (e.g., '2')");
+            // 3. THỬ LẤY KHÓA
+            // waitTime: 5s (chờ tối đa 5s để lấy khóa, nếu ko được thì thôi)
+            // leaseTime: 10s (giữ khóa tối đa 10s rồi tự nhả, tránh deadlock nếu server sập)
+            log.info("Đang thử lấy lock cho ghế: {}", fullSeat);
+            boolean isLocked = lock.tryLock(5, 10, TimeUnit.SECONDS);
+
+            if (!isLocked) {
+                // Trường hợp này xảy ra khi có 2 người cùng bấm nút "Mua" cực nhanh
+                throw new TicketSoldOutException("Ghế " + fullSeat + " đang được người khác thao tác. Vui lòng thử lại!");
+            }
+
+            // --- VÙNG AN TOÀN (CRITICAL SECTION) ---
+            log.info("Đã lấy được lock cho ghế: {}. Bắt đầu xử lý...", fullSeat);
+
+            // 4. DOUBLE CHECK (Kiểm tra lại DB lần nữa cho chắc chắn)
+            long seatOccupied = ticketRepository.countByTripIdAndDeckIdAndSelectedSeatAndStatusIn(
+                    tripId, deckId, fullSeat,
+                    List.of(TicketStatusEnum.PURCHASED, TicketStatusEnum.PENDING_PAYMENT)
+            );
+
+            if (seatOccupied > 0) {
+                throw new TicketSoldOutException("Rất tiếc! Ghế " + fullSeat + " vừa có người đặt thành công.");
+            }
+
+            // 5. Logic tạo vé PENDING (Code cũ của bạn)
+            Trip trip = tripRepository.findById(tripId)
+                    .orElseThrow(() -> new TicketSoldOutException("Trip không tìm thấy"));
+            double price = trip.getBasePrice() * deck.getPriceFactor();
+
+            Ticket ticket = new Ticket();
+            ticket.setStatus(TicketStatusEnum.PENDING_PAYMENT);
+            ticket.setPrice(price);
+            ticket.setSelectedSeat(fullSeat);
+            ticket.setDeck(deck);
+            ticket.setPurchaser(user);
+
+            Ticket savedTicket = ticketRepository.save(ticket);
+
+            // 6. Lấy URL thanh toán
+            String paymentUrl = vnPayService.createPaymentUrl(savedTicket);
+
+            log.info("Giữ chỗ thành công ghế {}. Đang chuyển sang thanh toán.", fullSeat);
+            return paymentUrl;
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusTicketException("Lỗi hệ thống khi xử lý lock (Interrupted)");
+        } finally {
+            // 7. LUÔN LUÔN NHẢ KHÓA
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
+                log.info("Đã nhả lock cho ghế: {}", fullSeat);
+            }
         }
-        if (pos < 1 || pos > deck.getTotalSeats()) {
-            throw new IllegalArgumentException("Vị trí không hợp lệ: " + pos + " (tầng có " + deck.getTotalSeats() + " chỗ)");
-        }
-
-        // Check seat cụ thể đã sold chưa
-        long seatSold = ticketRepository.countByTripIdAndDeckIdAndSelectedSeat(tripId, deckId, fullSeat);
-        if (seatSold > 0) {
-            throw new TicketSoldOutException("Ghế " + fullSeat + " đã được đặt");
-        }
-
-        // Check total sold out per deck
-        long totalSold = ticketRepository.countByDeckId(deckId);
-        if (totalSold + 1 > deck.getTotalSeats()) {
-            throw new TicketSoldOutException("Tầng " + deck.getLabel() + " đã hết chỗ");
-        }
-
-        long seatOccupied = ticketRepository.countByTripIdAndDeckIdAndSelectedSeatAndStatusIn(
-                tripId, deckId, fullSeat,
-                List.of(TicketStatusEnum.PURCHASED, TicketStatusEnum.PENDING_PAYMENT) // Check cả 2 trạng thái
-        );
-
-        if (seatOccupied > 0) {
-            throw new TicketSoldOutException("Ghế " + fullSeat + " đã được đặt hoặc đang chờ thanh toán.");
-        }
-
-        // Tính price
-        double price = trip.getBasePrice() * deck.getPriceFactor();
-
-        // Tạo Ticket
-        Ticket ticket = new Ticket();
-        ticket.setStatus(TicketStatusEnum.PENDING_PAYMENT);
-        ticket.setPrice(price);
-        ticket.setSelectedSeat(fullSeat);
-        ticket.setDeck(deck);
-        ticket.setPurchaser(user);
-
-        Ticket savedTicket = ticketRepository.save(ticket);
-        log.info("Tạo thành công Ticket ID: {} cho ghế {}", savedTicket.getId(), fullSeat);
-
-        String paymentUrl = vnPayService.createPaymentUrl(savedTicket);
-
-        log.info("Vé ID: {} đang chờ thanh toán. URL: {}", savedTicket.getId(), paymentUrl);
-        return paymentUrl;
     }
 
     @Override
