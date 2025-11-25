@@ -31,6 +31,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         if (userRepository.existsByEmail(signUpRequest.getEmail())) {
             throw new IllegalArgumentException("Email is already in use.");
         }
+        if (userRepository.existsByPhone(signUpRequest.getPhone())) {
+            throw new IllegalArgumentException("Phone number is already in use.");
+        }
 
         User user = new User();
         user.setUsername(signUpRequest.getUsername());
@@ -39,6 +42,8 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         user.setEmail(signUpRequest.getEmail());
         user.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
         user.setDateOfBirth(signUpRequest.getDateOfBirth());
+        user.setGender(signUpRequest.getGender());
+        user.setPhone(signUpRequest.getPhone());
         user.setRoles("ROLE_PASSENGER"); // Default role for new users
 
         return userRepository.save(user);

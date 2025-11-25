@@ -27,4 +27,9 @@ public class SignUpRequest {
     private String password;
 
     private LocalDate dateOfBirth;
+
+    private Integer gender;
+
+    @NotBlank(message = "Phone number is required")
+    private String phone;
 }

@@ -17,6 +17,7 @@ public interface UserRepository extends JpaRepository<User, UUID>, JpaSpecificat
     Optional<User> findByUsername(String username);
     boolean existsByUsername(String username);
     boolean existsByEmail(String email);
+    boolean existsByPhone(String phone);
     List<User> findAllByManagedByOperatorId(UUID operatorId);
     @Query("SELECT COUNT(u) FROM User u WHERE u.roles LIKE '%ROLE_PASSENGER%' " +
             "AND u.createdAt BETWEEN :start AND :end")

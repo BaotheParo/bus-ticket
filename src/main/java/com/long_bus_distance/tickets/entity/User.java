@@ -51,6 +51,12 @@ public class User implements UserDetails {
     @Column(name = "roles", nullable = false)
     private String roles;
 
+    @Column(name = "gender")
+    private Integer gender; // 1: Male, 0: Female
+
+    @Column(name = "phone", unique = true)
+    private String phone;
+
     @Column(name = "is_active", nullable = false)
     private boolean isActive = true; // Mặc định là true khi tạo mới
 
