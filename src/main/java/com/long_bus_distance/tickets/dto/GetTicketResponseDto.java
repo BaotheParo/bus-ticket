@@ -21,4 +21,5 @@ public class GetTicketResponseDto {
     private LocalDateTime departureTime;
     private String destination;
     private LocalDateTime arrivalTime;
+    private LocalDateTime createdAt;
 }
