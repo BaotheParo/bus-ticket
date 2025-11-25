@@ -32,22 +32,22 @@ public class PublishedTripController {
             @RequestParam(name = "timeSlot", required = false) String timeSlot,
             @RequestParam(name = "busType", required = false) String busType,
             @RequestParam(name = "deckLabel", required = false) String deckLabel,
-            @RequestParam(name = "q", required = false) String query,  // Keep old query if needed
+            @RequestParam(name = "routeName", required = false) String routeName,
+            @RequestParam(name = "q", required = false) String query,
             Pageable pageable) {
 
         log.info("Search published trips: departurePoint={}, destination={}, date={}, numTickets={}, filters={}",
                 departurePoint, destination, departureDate, numTickets,
-                "timeSlot=" + timeSlot + ",busType=" + busType + ",deck=" + deckLabel);
+                "timeSlot=" + timeSlot + ",busType=" + busType + ",deck=" + deckLabel + ",routeName=" + routeName);
 
-        // Use new search method (primary + filters); old 'q' fallback to simple search if no primary
         Page<ListPublishedTripResponseDto> response;
-        if (departurePoint != null || destination != null || departureDate != null) {
-            // Primary search mode
+        if (departurePoint != null || destination != null || departureDate != null || routeName != null) {
+            // Primary search mode (now includes routeName as a trigger)
             response = tripService.searchPublishedTrips(departurePoint, destination, departureDate, numTickets,
-                    timeSlot, busType, deckLabel, pageable);
+                    timeSlot, busType, deckLabel, routeName, pageable);
         } else if (query != null && !query.trim().isEmpty()) {
             // Backward compat: Old simple search
-            Page<Trip> trips = tripService.searchPublishedTrips(query, pageable);  // Existing
+            Page<Trip> trips = tripService.searchPublishedTrips(query, pageable);
             response = trips.map(tripMapper::toListPublishedTripResponseDto);
         } else {
             // Default: List all published (no filter)
