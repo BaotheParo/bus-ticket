@@ -11,14 +11,25 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface TicketService {
-    String purchaseTicket(UUID userId, UUID tripId, UUID deckId, String selectedSeatPos);  // Pos "2"
-    Page<Ticket> listTicketForUser(UUID userId, Pageable pageable);
-    Optional<Ticket> getTicketForUser(UUID ticketId, UUID userId);
-    Page<Ticket> listAllTickets(Optional<UUID> tripId, Optional<String> userEmail, Optional<String> status, Pageable pageable);
-    Page<Ticket> listTicketsForOperator(UUID operatorId, Optional<UUID> tripId, Optional<String> userEmail, Optional<String> status, Pageable pageable);
-    Ticket getTicketDetailsForAdminOrOperator(UUID ticketId, User currentUser) throws TicketNotFoundException, AccessDeniedException;
-    Ticket cancelTicketForAdminOrOperator(UUID ticketId, User currentUser) throws TicketNotFoundException, AccessDeniedException;
+    String purchaseTicket(UUID userId, UUID tripId, UUID deckId, String selectedSeatPos);
 
-    // Thêm method xử lý sau thanh toán
+    String purchaseBulkTickets(UUID userId, com.long_bus_distance.tickets.dto.BulkPurchaseRequestDto request);
+
+    Page<Ticket> listTicketForUser(UUID userId, Pageable pageable);
+
+    Optional<Ticket> getTicketForUser(UUID ticketId, UUID userId);
+
+    Page<Ticket> listAllTickets(Optional<UUID> tripId, Optional<String> userEmail, Optional<String> status,
+            Pageable pageable);
+
+    Page<Ticket> listTicketsForOperator(UUID operatorId, Optional<UUID> tripId, Optional<String> userEmail,
+            Optional<String> status, Pageable pageable);
+
+    Ticket getTicketDetailsForAdminOrOperator(UUID ticketId, User currentUser)
+            throws TicketNotFoundException, AccessDeniedException;
+
+    Ticket cancelTicketForAdminOrOperator(UUID ticketId, User currentUser)
+            throws TicketNotFoundException, AccessDeniedException;
+
     void processPaymentCallback(String ticketId, String responseCode);
 }

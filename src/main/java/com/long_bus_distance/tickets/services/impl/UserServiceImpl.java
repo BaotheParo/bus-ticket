@@ -1,9 +1,9 @@
-package com.long_bus_distance.tickets.service.impl;
+package com.long_bus_distance.tickets.services.impl;
 
 import com.long_bus_distance.tickets.dto.UserUpdateRequest;
 import com.long_bus_distance.tickets.entity.User;
 import com.long_bus_distance.tickets.repository.UserRepository;
-import com.long_bus_distance.tickets.service.UserService;
+import com.long_bus_distance.tickets.services.VNPayService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -11,7 +11,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class UserServiceImpl implements UserService {
+public class UserServiceImpl implements VNPayService.UserService {
 
     private final UserRepository userRepository;
 

@@ -1,5 +1,7 @@
 package com.long_bus_distance.tickets.services.impl;
 
+import com.long_bus_distance.tickets.dto.BookingSeatRequest;
+import com.long_bus_distance.tickets.dto.BulkPurchaseRequestDto;
 import com.long_bus_distance.tickets.entity.*;
 import com.long_bus_distance.tickets.exception.BusTicketException;
 import com.long_bus_distance.tickets.exception.TicketNotFoundException;
@@ -47,48 +49,38 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "trips", allEntries = true) // <--- Xóa cache tìm kiếm khi có vé mới được bán
+    @CacheEvict(value = "trips", allEntries = true)
     public String purchaseTicket(UUID userId, UUID tripId, UUID deckId, String selectedSeatPos) {
-        // 1. Validate cơ bản (User, Trip, Deck tồn tại?)
-        // Logic này giữ nguyên để fail-fast (lỗi nhanh) trước khi tốn công lock
+        // Keep existing implementation for backward compatibility or reference
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User không tìm thấy: " + userId));
         Deck deck = deckRepository.findById(deckId)
                 .orElseThrow(() -> new TicketSoldOutException("Deck không tìm thấy"));
 
-        // 2. CHUẨN BỊ KHÓA (LOCK)
-        // Key lock phải thật cụ thể: trip + deck + seat
         String fullSeat = deck.getLabel() + selectedSeatPos;
         String lockKey = "lock:ticket:trip:" + tripId + ":deck:" + deckId + ":seat:" + fullSeat;
 
         RLock lock = redissonClient.getLock(lockKey);
 
         try {
-            // 3. THỬ LẤY KHÓA
-            // waitTime: 5s (chờ tối đa 5s để lấy khóa, nếu ko được thì thôi)
-            // leaseTime: 10s (giữ khóa tối đa 10s rồi tự nhả, tránh deadlock nếu server sập)
             log.info("Đang thử lấy lock cho ghế: {}", fullSeat);
             boolean isLocked = lock.tryLock(5, 10, TimeUnit.SECONDS);
 
             if (!isLocked) {
-                // Trường hợp này xảy ra khi có 2 người cùng bấm nút "Mua" cực nhanh
-                throw new TicketSoldOutException("Ghế " + fullSeat + " đang được người khác thao tác. Vui lòng thử lại!");
+                throw new TicketSoldOutException(
+                        "Ghế " + fullSeat + " đang được người khác thao tác. Vui lòng thử lại!");
             }
 
-            // --- VÙNG AN TOÀN (CRITICAL SECTION) ---
             log.info("Đã lấy được lock cho ghế: {}. Bắt đầu xử lý...", fullSeat);
 
-            // 4. DOUBLE CHECK (Kiểm tra lại DB lần nữa cho chắc chắn)
             long seatOccupied = ticketRepository.countByTripIdAndDeckIdAndSelectedSeatAndStatusIn(
                     tripId, deckId, fullSeat,
-                    List.of(TicketStatusEnum.PURCHASED, TicketStatusEnum.PENDING_PAYMENT)
-            );
+                    List.of(TicketStatusEnum.PURCHASED, TicketStatusEnum.PENDING_PAYMENT));
 
             if (seatOccupied > 0) {
                 throw new TicketSoldOutException("Rất tiếc! Ghế " + fullSeat + " vừa có người đặt thành công.");
             }
 
-            // 5. Logic tạo vé PENDING (Code cũ của bạn)
             Trip trip = tripRepository.findById(tripId)
                     .orElseThrow(() -> new TicketSoldOutException("Trip không tìm thấy"));
             double price = trip.getBasePrice() * deck.getPriceFactor();
@@ -99,23 +91,113 @@ public class TicketServiceImpl implements TicketService {
             ticket.setSelectedSeat(fullSeat);
             ticket.setDeck(deck);
             ticket.setPurchaser(user);
+            ticket.setOrderGroupId(UUID.randomUUID().toString()); // Generate a group ID for single ticket too
 
             Ticket savedTicket = ticketRepository.save(ticket);
 
-            // 6. Lấy URL thanh toán
-            String paymentUrl = vnPayService.createPaymentUrl(savedTicket);
-
-            log.info("Giữ chỗ thành công ghế {}. Đang chuyển sang thanh toán.", fullSeat);
-            return paymentUrl;
+            // Use the new signature with group ID
+            return vnPayService.createPaymentUrl(savedTicket.getOrderGroupId(), savedTicket.getPrice());
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new BusTicketException("Lỗi hệ thống khi xử lý lock (Interrupted)");
         } finally {
-            // 7. LUÔN LUÔN NHẢ KHÓA
             if (lock.isHeldByCurrentThread()) {
                 lock.unlock();
                 log.info("Đã nhả lock cho ghế: {}", fullSeat);
+            }
+        }
+    }
+
+    @Override
+    @Transactional
+    public String purchaseBulkTickets(UUID userId, BulkPurchaseRequestDto request) {
+        // 1. Validate User
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User không tồn tại"));
+
+        // Tạo một mã giao dịch chung (Order Group ID)
+        String orderGroupId = UUID.randomUUID().toString();
+        List<RLock> locks = new ArrayList<>();
+        List<Ticket> ticketsToSave = new ArrayList<>();
+        double totalAmount = 0.0;
+
+        // 2. CHUẨN BỊ KHÓA (LOCK) CHO TẤT CẢ GHẾ
+        for (BookingSeatRequest seatReq : request.getBookingSeats()) {
+            // Lấy thông tin Deck để check và lấy label (A/B)
+            Deck deck = deckRepository.findById(seatReq.getDeckId())
+                    .orElseThrow(() -> new TicketSoldOutException("Deck không tồn tại"));
+
+            String fullSeat = deck.getLabel() + seatReq.getSelectedSeat();
+
+            // Tạo key lock: trip + deck + seat
+            String lockKey = "lock:ticket:trip:" + seatReq.getTripId() +
+                    ":deck:" + seatReq.getDeckId() +
+                    ":seat:" + fullSeat;
+
+            locks.add(redissonClient.getLock(lockKey));
+        }
+
+        // Gộp tất cả lock đơn lẻ thành 1 MultiLock
+        RLock multiLock = redissonClient.getMultiLock(locks.toArray(new RLock[0]));
+
+        try {
+            // 3. THỬ LẤY KHÓA (Atomic: Được ăn cả, ngã về không)
+            // Chờ 5s, giữ lock 10s
+            boolean isLocked = multiLock.tryLock(5, 10, TimeUnit.SECONDS);
+
+            if (!isLocked) {
+                throw new TicketSoldOutException(
+                        "Một trong số các ghế bạn chọn đang được người khác thao tác. Vui lòng thử lại!");
+            }
+
+            // --- VÙNG AN TOÀN (CRITICAL SECTION) ---
+
+            for (BookingSeatRequest seatReq : request.getBookingSeats()) {
+                Deck deck = deckRepository.getReferenceById(seatReq.getDeckId()); // Lấy ref cho nhanh
+                Trip trip = tripRepository.findById(seatReq.getTripId()).orElseThrow();
+                String fullSeat = deck.getLabel() + seatReq.getSelectedSeat();
+
+                // 4. DOUBLE CHECK DB (Kiểm tra xem ghế đã bán chưa)
+                long seatOccupied = ticketRepository.countByTripIdAndDeckIdAndSelectedSeatAndStatusIn(
+                        seatReq.getTripId(), seatReq.getDeckId(), fullSeat,
+                        List.of(TicketStatusEnum.PURCHASED, TicketStatusEnum.PENDING_PAYMENT));
+
+                if (seatOccupied > 0) {
+                    throw new TicketSoldOutException("Ghế " + fullSeat + " đã bị đặt trước đó.");
+                }
+
+                // 5. Tạo Entity Ticket
+                Ticket ticket = new Ticket();
+                ticket.setStatus(TicketStatusEnum.PENDING_PAYMENT);
+                double price = trip.getBasePrice() * deck.getPriceFactor();
+                ticket.setPrice(price);
+                ticket.setSelectedSeat(fullSeat);
+                ticket.setDeck(deck);
+                ticket.setPurchaser(user);
+                ticket.setOrderGroupId(orderGroupId); // <-- QUAN TRỌNG: Gán Group ID
+
+                ticketsToSave.add(ticket);
+                totalAmount += price;
+            }
+
+            // Lưu tất cả vé xuống DB cùng lúc
+            ticketRepository.saveAll(ticketsToSave);
+
+            // 6. Tạo URL thanh toán VNPay
+            // Cần cập nhật VNPayService để nhận totalAmount và orderGroupId thay vì 1
+            // ticket
+            String paymentUrl = vnPayService.createPaymentUrl(orderGroupId, totalAmount);
+
+            return paymentUrl;
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusTicketException("Lỗi hệ thống khi xử lý lock");
+        } finally {
+            // 7. NHẢ KHÓA
+            if (multiLock.isHeldByCurrentThread()) {
+                multiLock.unlock();
             }
         }
     }
@@ -133,15 +215,19 @@ public class TicketServiceImpl implements TicketService {
     }
 
     @Override
-    public Page<Ticket> listAllTickets(Optional<UUID> tripId, Optional<String> userEmail, Optional<String> status, Pageable pageable) {
-        log.info("Admin listing all tickets with filters: tripId={}, userEmail={}, status={}", tripId, userEmail, status);
+    public Page<Ticket> listAllTickets(Optional<UUID> tripId, Optional<String> userEmail, Optional<String> status,
+            Pageable pageable) {
+        log.info("Admin listing all tickets with filters: tripId={}, userEmail={}, status={}", tripId, userEmail,
+                status);
         Specification<Ticket> spec = createTicketSpecification(tripId, userEmail, status, Optional.empty());
         return ticketRepository.findAll(spec, pageable);
     }
 
     @Override
-    public Page<Ticket> listTicketsForOperator(UUID operatorId, Optional<UUID> tripId, Optional<String> userEmail, Optional<String> status, Pageable pageable) {
-        log.info("Operator {} listing tickets with filters: tripId={}, userEmail={}, status={}", operatorId, tripId, userEmail, status);
+    public Page<Ticket> listTicketsForOperator(UUID operatorId, Optional<UUID> tripId, Optional<String> userEmail,
+            Optional<String> status, Pageable pageable) {
+        log.info("Operator {} listing tickets with filters: tripId={}, userEmail={}, status={}", operatorId, tripId,
+                userEmail, status);
         // Tạo spec với bộ lọc
         Specification<Ticket> spec = createTicketSpecification(tripId, userEmail, status, Optional.of(operatorId));
         return ticketRepository.findAll(spec, pageable);
@@ -150,7 +236,8 @@ public class TicketServiceImpl implements TicketService {
     /**
      * Helper private để xây dựng Specification cho việc lọc vé.
      */
-    private Specification<Ticket> createTicketSpecification(Optional<UUID> tripId, Optional<String> userEmail, Optional<String> status, Optional<UUID> operatorId) {
+    private Specification<Ticket> createTicketSpecification(Optional<UUID> tripId, Optional<String> userEmail,
+            Optional<String> status, Optional<UUID> operatorId) {
 
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -167,7 +254,8 @@ public class TicketServiceImpl implements TicketService {
 
             // Lọc theo email người mua (join qua User)
             userEmail.ifPresent(email -> {
-                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("purchaser").get("email")), "%" + email.toLowerCase() + "%"));
+                predicates.add(criteriaBuilder.like(criteriaBuilder.lower(root.get("purchaser").get("email")),
+                        "%" + email.toLowerCase() + "%"));
             });
 
             // Lọc theo trạng thái vé
@@ -186,7 +274,8 @@ public class TicketServiceImpl implements TicketService {
     }
 
     @Override
-    public Ticket getTicketDetailsForAdminOrOperator(UUID ticketId, User currentUser) throws TicketNotFoundException, AccessDeniedException {
+    public Ticket getTicketDetailsForAdminOrOperator(UUID ticketId, User currentUser)
+            throws TicketNotFoundException, AccessDeniedException {
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new TicketNotFoundException("Ticket not found with ID: " + ticketId));
 
@@ -201,11 +290,12 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     @Transactional
-    public Ticket cancelTicketForAdminOrOperator(UUID ticketId, User currentUser) throws TicketNotFoundException, AccessDeniedException {
+    public Ticket cancelTicketForAdminOrOperator(UUID ticketId, User currentUser)
+            throws TicketNotFoundException, AccessDeniedException {
         Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new TicketNotFoundException("Ticket not found with ID:"+ "Ex" + ticketId));
+                .orElseThrow(() -> new TicketNotFoundException("Ticket not found with ID:" + "Ex" + ticketId));
 
-                        // Nếu là Operator, phải kiểm tra quyền sở hữu
+        // Nếu là Operator, phải kiểm tra quyền sở hữu
         if (currentUser.getRoles().contains("ROLE_OPERATOR")) {
             checkOperatorTicketOwnership(ticket, currentUser.getId());
         }
@@ -219,25 +309,35 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     @Transactional
-    public void processPaymentCallback(String ticketIdStr, String responseCode) {
-        UUID ticketId = UUID.fromString(ticketIdStr);
-        Ticket ticket = ticketRepository.findById(ticketId)
-                .orElseThrow(() -> new TicketNotFoundException("Vé không tồn tại"));
+    public void processPaymentCallback(String orderGroupId, String responseCode) {
+        List<Ticket> tickets = ticketRepository.findAllByOrderGroupId(orderGroupId);
 
-        if ("00".equals(responseCode)) { // 00 là thành công của VNPay
-            if (ticket.getStatus() == TicketStatusEnum.PENDING_PAYMENT) {
-                ticket.setStatus(TicketStatusEnum.PURCHASED);
-                ticketRepository.save(ticket);
-
-                // Thanh toán xong mới tạo QR
-                qrCodeService.generateQRCode(ticket);
-                log.info("Thanh toán thành công vé ID: {}", ticketId);
+        if (tickets.isEmpty()) {
+            // Fallback: try to find by ticket ID if it's a UUID (old flow)
+            try {
+                UUID ticketId = UUID.fromString(orderGroupId);
+                Optional<Ticket> ticketOpt = ticketRepository.findById(ticketId);
+                if (ticketOpt.isPresent()) {
+                    tickets = List.of(ticketOpt.get());
+                } else {
+                    throw new TicketNotFoundException("Không tìm thấy giao dịch: " + orderGroupId);
+                }
+            } catch (IllegalArgumentException e) {
+                throw new TicketNotFoundException("Không tìm thấy giao dịch: " + orderGroupId);
             }
-        } else {
-            ticket.setStatus(TicketStatusEnum.FAILED);
-            ticketRepository.save(ticket);
-            log.warn("Thanh toán thất bại vé ID: {}", ticketId);
         }
+
+        TicketStatusEnum newStatus = "00".equals(responseCode) ? TicketStatusEnum.PURCHASED : TicketStatusEnum.FAILED;
+
+        for (Ticket ticket : tickets) {
+            if (ticket.getStatus() == TicketStatusEnum.PENDING_PAYMENT) {
+                ticket.setStatus(newStatus);
+                if (newStatus == TicketStatusEnum.PURCHASED) {
+                    qrCodeService.generateQRCode(ticket); // Tạo QR cho từng vé
+                }
+            }
+        }
+        ticketRepository.saveAll(tickets);
     }
 
     private void checkOperatorTicketOwnership(Ticket ticket, UUID operatorId) throws AccessDeniedException {

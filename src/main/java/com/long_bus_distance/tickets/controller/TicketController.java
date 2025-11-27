@@ -44,7 +44,6 @@ public class TicketController {
 
     @PostMapping
     @PreAuthorize("hasRole('PASSENGER')")
-    // Sửa return type thành String hoặc DTO chứa URL
     public ResponseEntity<String> purchaseTicket(
             @Valid @RequestBody PurchaseTicketRequestDto requestDto) {
         log.info("Nhận request mua vé...");
@@ -55,10 +54,21 @@ public class TicketController {
                 currentUser.getId(),
                 requestDto.getTripId(),
                 requestDto.getDeckId(),
-                requestDto.getSelectedSeat()
-        );
+                requestDto.getSelectedSeat());
 
         // Trả về URL để Frontend redirect
+        return ResponseEntity.ok(paymentUrl);
+    }
+
+    @PostMapping("/bulk")
+    @PreAuthorize("hasRole('PASSENGER')")
+    public ResponseEntity<String> purchaseBulkTickets(
+            @Valid @RequestBody com.long_bus_distance.tickets.dto.BulkPurchaseRequestDto requestDto) {
+        log.info("Nhận request mua vé số lượng lớn...");
+        User currentUser = getAuthenticatedUser();
+
+        String paymentUrl = ticketService.purchaseBulkTickets(currentUser.getId(), requestDto);
+
         return ResponseEntity.ok(paymentUrl);
     }
 

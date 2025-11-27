@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
 public class Ticket {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -31,10 +33,13 @@ public class Ticket {
     private TicketStatusEnum status = TicketStatusEnum.PURCHASED;
 
     @Column(name = "selected_seat", nullable = true)
-    private String selectedSeat;  // Full "B2" sau normalize
+    private String selectedSeat; // Full "B2" sau normalize
 
     @Column(name = "price", nullable = false)
     private Double price;
+
+    @Column(name = "order_group_id", nullable = false)
+    private String orderGroupId;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -61,10 +66,14 @@ public class Ticket {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o)
+            return true;
+        if (o == null || getClass() != o.getClass())
+            return false;
         Ticket ticket = (Ticket) o;
-        return Objects.equals(id, ticket.id) && status == ticket.status && Objects.equals(selectedSeat, ticket.selectedSeat) && Objects.equals(price, ticket.price) && Objects.equals(createdAt, ticket.createdAt) && Objects.equals(updatedAt, ticket.updatedAt);
+        return Objects.equals(id, ticket.id) && status == ticket.status
+                && Objects.equals(selectedSeat, ticket.selectedSeat) && Objects.equals(price, ticket.price)
+                && Objects.equals(createdAt, ticket.createdAt) && Objects.equals(updatedAt, ticket.updatedAt);
     }
 
     @Override

@@ -19,74 +19,80 @@ import java.util.UUID;
 @Repository
 public interface TicketRepository extends JpaRepository<Ticket, UUID>, JpaSpecificationExecutor<Ticket> {
 
-    @Query("SELECT COUNT(t) FROM Ticket t WHERE t.deck.id = :deckId " +
-            "AND t.deck.trip.id = :tripId " +
-            "AND t.selectedSeat = :selectedSeat " +
-            "AND t.status IN :statuses")
-    long countByTripIdAndDeckIdAndSelectedSeatAndStatusIn(
-            @Param("tripId") UUID tripId,
-            @Param("deckId") UUID deckId,
-            @Param("selectedSeat") String selectedSeat,
-            @Param("statuses") Collection<TicketStatusEnum> statuses);
+        @Query("SELECT COUNT(t) FROM Ticket t WHERE t.deck.id = :deckId " +
+                        "AND t.deck.trip.id = :tripId " +
+                        "AND t.selectedSeat = :selectedSeat " +
+                        "AND t.status IN :statuses")
+        long countByTripIdAndDeckIdAndSelectedSeatAndStatusIn(
+                        @Param("tripId") UUID tripId,
+                        @Param("deckId") UUID deckId,
+                        @Param("selectedSeat") String selectedSeat,
+                        @Param("statuses") Collection<TicketStatusEnum> statuses);
 
-    List<Ticket> findAllByStatusAndCreatedAtBefore(TicketStatusEnum status, LocalDateTime dateTime);
+        List<Ticket> findAllByStatusAndCreatedAtBefore(TicketStatusEnum status, LocalDateTime dateTime);
 
-    // Count sold cho remaining
-    long countByDeckId(UUID deckId);
-    // Check seat sold cụ thể (FIX: Sửa t.trip.id → t.deck.trip.id)
-    @Query("SELECT COUNT(t) FROM Ticket t WHERE t.deck.id = :deckId AND t.deck.trip.id = :tripId AND t.selectedSeat = :selectedSeat")
-    long countByTripIdAndDeckIdAndSelectedSeat(@Param("tripId") UUID tripId, @Param("deckId") UUID deckId, @Param("selectedSeat") String selectedSeat);
+        long countByDeckId(UUID deckId);
 
-    // List vé cho user
-    Page<Ticket> findByPurchaserId(UUID purchaserId, Pageable pageable);
+        @Query("SELECT COUNT(t) FROM Ticket t WHERE t.deck.id = :deckId AND t.deck.trip.id = :tripId AND t.selectedSeat = :selectedSeat")
+        long countByTripIdAndDeckIdAndSelectedSeat(@Param("tripId") UUID tripId, @Param("deckId") UUID deckId,
+                        @Param("selectedSeat") String selectedSeat);
 
-    // Get vé cụ thể cho user
-    Optional<Ticket> findByIdAndPurchaserId(UUID ticketId, UUID purchaserId);
-    // (ADMIN) Tổng doanh thu
-    @Query("SELECT COALESCE(SUM(t.price), 0.0) FROM Ticket t " +
-            "WHERE t.status = 'PURCHASED' AND t.createdAt BETWEEN :start AND :end")
-    Double getPlatformRevenueBetweenDates(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+        Page<Ticket> findByPurchaserId(UUID purchaserId, Pageable pageable);
 
-    // (ADMIN) Tổng vé bán
-    @Query("SELECT COUNT(t) FROM Ticket t " +
-            "WHERE t.status = 'PURCHASED' AND t.createdAt BETWEEN :start AND :end")
-    Long getPlatformTicketsSoldBetweenDates(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+        Optional<Ticket> findByIdAndPurchaserId(UUID ticketId, UUID purchaserId);
 
-    // (ADMIN) Doanh thu theo ngày (SỬA LỖI Ở ĐÂY)
-    @Query("SELECT DATE(t.createdAt), SUM(t.price * 1.0) " + // Bỏ 'new ...'
-            "FROM Ticket t WHERE t.status = 'PURCHASED' AND t.createdAt BETWEEN :start AND :end " +
-            "GROUP BY DATE(t.createdAt) ORDER BY DATE(t.createdAt) ASC")
-    List<Object[]> getAdminRevenueOverTime(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end); // Trả về List<Object[]>
+        List<Ticket> findAllByOrderGroupId(String orderGroupId);
 
-    // (ADMIN) Top 5 Nhà xe (SỬA LỖI Ở ĐÂY)
-    @Query("SELECT tr.operator.username, SUM(t.price * 1.0) " + // Bỏ 'new ...'
-            "FROM Ticket t JOIN t.deck d JOIN d.trip tr " +
-            "WHERE t.status = 'PURCHASED' AND t.createdAt BETWEEN :start AND :end " +
-            "GROUP BY tr.operator.username ORDER BY SUM(t.price) DESC")
-    List<Object[]> getTopOperators(Pageable pageable, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end); // Trả về List<Object[]>
+        // Count sold cho remaining
+        @Query("SELECT COUNT(t) FROM Ticket t " +
+                        "WHERE t.status = 'PURCHASED' AND t.createdAt BETWEEN :start AND :end")
+        Long getPlatformTicketsSoldBetweenDates(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
+        @Query("SELECT COALESCE(SUM(t.price), 0.0) FROM Ticket t " +
+                        "WHERE t.status = 'PURCHASED' AND t.createdAt BETWEEN :start AND :end")
+        Double getPlatformRevenueBetweenDates(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
-    // (OPERATOR) Tổng doanh thu
-    @Query("SELECT COALESCE(SUM(t.price), 0.0) FROM Ticket t JOIN t.deck d JOIN d.trip tr " +
-            "WHERE tr.operator.id = :operatorId AND t.status = 'PURCHASED' AND t.createdAt BETWEEN :start AND :end")
-    Double getOperatorRevenueBetweenDates(@Param("operatorId") UUID operatorId, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+        // (ADMIN) Doanh thu theo ngày
+        @Query("SELECT DATE(t.createdAt), SUM(t.price * 1.0) " +
+                        "FROM Ticket t WHERE t.status = 'PURCHASED' AND t.createdAt BETWEEN :start AND :end " +
+                        "GROUP BY DATE(t.createdAt) ORDER BY DATE(t.createdAt) ASC")
+        List<Object[]> getAdminRevenueOverTime(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
-    // (OPERATOR) Tổng vé bán
-    @Query("SELECT COUNT(t) FROM Ticket t JOIN t.deck d JOIN d.trip tr " +
-            "WHERE tr.operator.id = :operatorId AND t.status = 'PURCHASED' AND t.createdAt BETWEEN :start AND :end")
-    Long getOperatorTicketsSoldBetweenDates(@Param("operatorId") UUID operatorId, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+        // (ADMIN) Top 5 Nhà xe
+        @Query("SELECT tr.operator.username, SUM(t.price * 1.0) " +
+                        "FROM Ticket t JOIN t.deck d JOIN d.trip tr " +
+                        "WHERE t.status = 'PURCHASED' AND t.createdAt BETWEEN :start AND :end " +
+                        "GROUP BY tr.operator.username ORDER BY SUM(t.price) DESC")
+        List<Object[]> getTopOperators(Pageable pageable, @Param("start") LocalDateTime start,
+                        @Param("end") LocalDateTime end);
 
-    // (OPERATOR) Doanh thu theo ngày (SỬA LỖI Ở ĐÂY)
-    @Query("SELECT DATE(t.createdAt), SUM(t.price * 1.0) " + // Bỏ 'new ...'
-            "FROM Ticket t JOIN t.deck d JOIN d.trip tr " +
-            "WHERE tr.operator.id = :operatorId AND t.status = 'PURCHASED' AND t.createdAt BETWEEN :start AND :end " +
-            "GROUP BY DATE(t.createdAt) ORDER BY DATE(t.createdAt) ASC")
-    List<Object[]> getOperatorRevenueOverTime(@Param("operatorId") UUID operatorId, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end); // Trả về List<Object[]>
+        // (OPERATOR) Tổng doanh thu
+        @Query("SELECT COALESCE(SUM(t.price), 0.0) FROM Ticket t JOIN t.deck d JOIN d.trip tr " +
+                        "WHERE tr.operator.id = :operatorId AND t.status = 'PURCHASED' AND t.createdAt BETWEEN :start AND :end")
+        Double getOperatorRevenueBetweenDates(@Param("operatorId") UUID operatorId, @Param("start") LocalDateTime start,
+                        @Param("end") LocalDateTime end);
 
-    // (OPERATOR) Top 5 Tuyến (SỬA LỖI Ở ĐÂY)
-    @Query("SELECT tr.routeName, SUM(t.price * 1.0) " + // Bỏ 'new ...'
-            "FROM Ticket t JOIN t.deck d JOIN d.trip tr " +
-            "WHERE tr.operator.id = :operatorId AND t.status = 'PURCHASED' AND t.createdAt BETWEEN :start AND :end " +
-            "GROUP BY tr.routeName ORDER BY SUM(t.price) DESC")
-    List<Object[]> getTopTripsForOperator(Pageable pageable, @Param("operatorId") UUID operatorId, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end); // Trả về List<Object[]
+        // (OPERATOR) Tổng vé bán
+        @Query("SELECT COUNT(t) FROM Ticket t JOIN t.deck d JOIN d.trip tr " +
+                        "WHERE tr.operator.id = :operatorId AND t.status = 'PURCHASED' AND t.createdAt BETWEEN :start AND :end")
+        Long getOperatorTicketsSoldBetweenDates(@Param("operatorId") UUID operatorId,
+                        @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+        // (OPERATOR) Doanh thu theo ngày
+        @Query("SELECT DATE(t.createdAt), SUM(t.price * 1.0) " +
+                        "FROM Ticket t JOIN t.deck d JOIN d.trip tr " +
+                        "WHERE tr.operator.id = :operatorId AND t.status = 'PURCHASED' AND t.createdAt BETWEEN :start AND :end "
+                        +
+                        "GROUP BY DATE(t.createdAt) ORDER BY DATE(t.createdAt) ASC")
+        List<Object[]> getOperatorRevenueOverTime(@Param("operatorId") UUID operatorId,
+                        @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+        // (OPERATOR) Top 5 Tuyến
+        @Query("SELECT tr.routeName, SUM(t.price * 1.0) " +
+                        "FROM Ticket t JOIN t.deck d JOIN d.trip tr " +
+                        "WHERE tr.operator.id = :operatorId AND t.status = 'PURCHASED' AND t.createdAt BETWEEN :start AND :end "
+                        +
+                        "GROUP BY tr.routeName ORDER BY SUM(t.price) DESC")
+        List<Object[]> getTopTripsForOperator(Pageable pageable, @Param("operatorId") UUID operatorId,
+                        @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }
