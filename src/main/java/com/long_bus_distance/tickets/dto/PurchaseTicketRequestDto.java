@@ -1,23 +1,14 @@
 package com.long_bus_distance.tickets.dto;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import lombok.AllArgsConstructor;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
-import java.util.UUID;
+import java.util.List;
 
 @Data
-@AllArgsConstructor
-@NoArgsConstructor
 public class PurchaseTicketRequestDto {
-    @NotNull(message = "Trip ID is required")
-    private UUID tripId;
-
-    @NotNull(message = "Deck ID is required")
-    private UUID deckId;
-
-    @NotBlank(message = "Selected seat position is required (e.g., '2')")
-    private String selectedSeat;  // Chỉ vị trí số, e.g., "2"
+    @NotEmpty(message = "Danh sách ghế không được để trống")
+    @Valid
+    private List<BookingSeatRequest> bookingSeats;
 }

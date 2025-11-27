@@ -1,7 +1,7 @@
 package com.long_bus_distance.tickets.services.impl;
 
 import com.long_bus_distance.tickets.dto.BookingSeatRequest;
-import com.long_bus_distance.tickets.dto.BulkPurchaseRequestDto;
+import com.long_bus_distance.tickets.dto.PurchaseTicketRequestDto;
 import com.long_bus_distance.tickets.entity.*;
 import com.long_bus_distance.tickets.exception.BusTicketException;
 import com.long_bus_distance.tickets.exception.TicketNotFoundException;
@@ -50,68 +50,7 @@ public class TicketServiceImpl implements TicketService {
     @Override
     @Transactional
     @CacheEvict(value = "trips", allEntries = true)
-    public String purchaseTicket(UUID userId, UUID tripId, UUID deckId, String selectedSeatPos) {
-        // Keep existing implementation for backward compatibility or reference
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException("User không tìm thấy: " + userId));
-        Deck deck = deckRepository.findById(deckId)
-                .orElseThrow(() -> new TicketSoldOutException("Deck không tìm thấy"));
-
-        String fullSeat = deck.getLabel() + selectedSeatPos;
-        String lockKey = "lock:ticket:trip:" + tripId + ":deck:" + deckId + ":seat:" + fullSeat;
-
-        RLock lock = redissonClient.getLock(lockKey);
-
-        try {
-            log.info("Đang thử lấy lock cho ghế: {}", fullSeat);
-            boolean isLocked = lock.tryLock(5, 10, TimeUnit.SECONDS);
-
-            if (!isLocked) {
-                throw new TicketSoldOutException(
-                        "Ghế " + fullSeat + " đang được người khác thao tác. Vui lòng thử lại!");
-            }
-
-            log.info("Đã lấy được lock cho ghế: {}. Bắt đầu xử lý...", fullSeat);
-
-            long seatOccupied = ticketRepository.countByTripIdAndDeckIdAndSelectedSeatAndStatusIn(
-                    tripId, deckId, fullSeat,
-                    List.of(TicketStatusEnum.PURCHASED, TicketStatusEnum.PENDING_PAYMENT));
-
-            if (seatOccupied > 0) {
-                throw new TicketSoldOutException("Rất tiếc! Ghế " + fullSeat + " vừa có người đặt thành công.");
-            }
-
-            Trip trip = tripRepository.findById(tripId)
-                    .orElseThrow(() -> new TicketSoldOutException("Trip không tìm thấy"));
-            double price = trip.getBasePrice() * deck.getPriceFactor();
-
-            Ticket ticket = new Ticket();
-            ticket.setStatus(TicketStatusEnum.PENDING_PAYMENT);
-            ticket.setPrice(price);
-            ticket.setSelectedSeat(fullSeat);
-            ticket.setDeck(deck);
-            ticket.setPurchaser(user);
-            ticket.setOrderGroupId(UUID.randomUUID().toString()); // Generate a group ID for single ticket too
-
-            Ticket savedTicket = ticketRepository.save(ticket);
-
-            // Use the new signature with group ID
-            return vnPayService.createPaymentUrl(savedTicket.getOrderGroupId(), savedTicket.getPrice());
-
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new BusTicketException("Lỗi hệ thống khi xử lý lock (Interrupted)");
-        } finally {
-            if (lock.isHeldByCurrentThread()) {
-                lock.unlock();
-                log.info("Đã nhả lock cho ghế: {}", fullSeat);
-            }
-        }
-    }
-
-    @Override
-    @Transactional
-    public String purchaseBulkTickets(UUID userId, BulkPurchaseRequestDto request) {
+    public String purchaseTicket(UUID userId, PurchaseTicketRequestDto request) {
         // 1. Validate User
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException("User không tồn tại"));
@@ -140,11 +79,12 @@ public class TicketServiceImpl implements TicketService {
 
         // Gộp tất cả lock đơn lẻ thành 1 MultiLock
         RLock multiLock = redissonClient.getMultiLock(locks.toArray(new RLock[0]));
+        boolean isLocked = false;
 
         try {
             // 3. THỬ LẤY KHÓA (Atomic: Được ăn cả, ngã về không)
             // Chờ 5s, giữ lock 10s
-            boolean isLocked = multiLock.tryLock(5, 10, TimeUnit.SECONDS);
+            isLocked = multiLock.tryLock(5, 10, TimeUnit.SECONDS);
 
             if (!isLocked) {
                 throw new TicketSoldOutException(
@@ -196,7 +136,7 @@ public class TicketServiceImpl implements TicketService {
             throw new BusTicketException("Lỗi hệ thống khi xử lý lock");
         } finally {
             // 7. NHẢ KHÓA
-            if (multiLock.isHeldByCurrentThread()) {
+            if (isLocked) {
                 multiLock.unlock();
             }
         }

@@ -1,7 +1,7 @@
 package com.long_bus_distance.tickets.services.impl;
 
 import com.long_bus_distance.tickets.dto.BookingSeatRequest;
-import com.long_bus_distance.tickets.dto.BulkPurchaseRequestDto;
+import com.long_bus_distance.tickets.dto.PurchaseTicketRequestDto;
 import com.long_bus_distance.tickets.entity.*;
 import com.long_bus_distance.tickets.repository.DeckRepository;
 import com.long_bus_distance.tickets.repository.TicketRepository;
@@ -29,7 +29,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class BulkTicketPurchaseTest {
+class TicketPurchaseTest {
 
     @Mock
     private UserRepository userRepository;
@@ -81,9 +81,9 @@ class BulkTicketPurchaseTest {
     }
 
     @Test
-    void purchaseBulkTickets_Success() throws InterruptedException {
+    void purchaseTicket_Success() throws InterruptedException {
         // Arrange
-        BulkPurchaseRequestDto request = new BulkPurchaseRequestDto();
+        PurchaseTicketRequestDto request = new PurchaseTicketRequestDto();
         List<BookingSeatRequest> seats = new ArrayList<>();
 
         BookingSeatRequest seat1 = new BookingSeatRequest();
@@ -112,7 +112,6 @@ class BulkTicketPurchaseTest {
         lenient().when(redissonClient.getMultiLock(any(RLock.class), any(RLock.class))).thenReturn(multiLock);
 
         lenient().when(multiLock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(true);
-        lenient().when(multiLock.isHeldByCurrentThread()).thenReturn(true);
 
         lenient()
                 .when(ticketRepository.countByTripIdAndDeckIdAndSelectedSeatAndStatusIn(any(), any(), anyString(),
@@ -122,7 +121,7 @@ class BulkTicketPurchaseTest {
         lenient().when(vnPayService.createPaymentUrl(anyString(), anyDouble())).thenReturn("http://payment-url");
 
         // Act
-        String result = ticketService.purchaseBulkTickets(userId, request);
+        String result = ticketService.purchaseTicket(userId, request);
 
         // Assert
         assertNotNull(result);

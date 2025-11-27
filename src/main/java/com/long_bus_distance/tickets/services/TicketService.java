@@ -1,5 +1,6 @@
 package com.long_bus_distance.tickets.services;
 
+import com.long_bus_distance.tickets.dto.PurchaseTicketRequestDto;
 import com.long_bus_distance.tickets.entity.Ticket;
 import com.long_bus_distance.tickets.entity.User;
 import com.long_bus_distance.tickets.exception.TicketNotFoundException;
@@ -11,25 +12,23 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface TicketService {
-    String purchaseTicket(UUID userId, UUID tripId, UUID deckId, String selectedSeatPos);
+        String purchaseTicket(UUID userId, PurchaseTicketRequestDto request);
 
-    String purchaseBulkTickets(UUID userId, com.long_bus_distance.tickets.dto.BulkPurchaseRequestDto request);
+        Page<Ticket> listTicketForUser(UUID userId, Pageable pageable);
 
-    Page<Ticket> listTicketForUser(UUID userId, Pageable pageable);
+        Optional<Ticket> getTicketForUser(UUID ticketId, UUID userId);
 
-    Optional<Ticket> getTicketForUser(UUID ticketId, UUID userId);
+        Page<Ticket> listAllTickets(Optional<UUID> tripId, Optional<String> userEmail, Optional<String> status,
+                        Pageable pageable);
 
-    Page<Ticket> listAllTickets(Optional<UUID> tripId, Optional<String> userEmail, Optional<String> status,
-            Pageable pageable);
+        Page<Ticket> listTicketsForOperator(UUID operatorId, Optional<UUID> tripId, Optional<String> userEmail,
+                        Optional<String> status, Pageable pageable);
 
-    Page<Ticket> listTicketsForOperator(UUID operatorId, Optional<UUID> tripId, Optional<String> userEmail,
-            Optional<String> status, Pageable pageable);
+        Ticket getTicketDetailsForAdminOrOperator(UUID ticketId, User currentUser)
+                        throws TicketNotFoundException, AccessDeniedException;
 
-    Ticket getTicketDetailsForAdminOrOperator(UUID ticketId, User currentUser)
-            throws TicketNotFoundException, AccessDeniedException;
+        Ticket cancelTicketForAdminOrOperator(UUID ticketId, User currentUser)
+                        throws TicketNotFoundException, AccessDeniedException;
 
-    Ticket cancelTicketForAdminOrOperator(UUID ticketId, User currentUser)
-            throws TicketNotFoundException, AccessDeniedException;
-
-    void processPaymentCallback(String ticketId, String responseCode);
+        void processPaymentCallback(String ticketId, String responseCode);
 }
