@@ -20,4 +20,5 @@ public class ListPublishedTripResponseDto implements Serializable {
     private LocalDateTime arrivalTime;
     private String destination;
     private Integer totalAvailableSeats;
+    private Double basePrice;
 }

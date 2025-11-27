@@ -196,7 +196,7 @@ public class TripServiceImpl implements TripService {
         List<DeckWithSeatsDto> deckDtos = trip.getDecks().stream().map(deck -> {
             long sold = ticketRepository.countByDeckId(deck.getId());
             int remaining = deck.getTotalSeats() - (int) sold;
-            double seatPrice = trip.getBasePrice() * deck.getPriceFactor() / deck.getTotalSeats();
+            double seatPrice = trip.getBasePrice() * deck.getPriceFactor();
 
             List<SeatDto> seats = new ArrayList<>();
             for (int pos = 1; pos <= deck.getTotalSeats(); pos++) {
