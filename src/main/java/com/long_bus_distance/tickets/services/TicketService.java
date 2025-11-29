@@ -30,5 +30,6 @@ public interface TicketService {
         Ticket cancelTicketForAdminOrOperator(UUID ticketId, User currentUser)
                         throws TicketNotFoundException, AccessDeniedException;
 
-        void processPaymentCallback(String ticketId, String responseCode);
+        void processPaymentCallback(String orderGroupId, String responseCode);
+
 }

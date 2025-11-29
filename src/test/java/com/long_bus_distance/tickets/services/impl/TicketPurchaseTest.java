@@ -118,7 +118,7 @@ class TicketPurchaseTest {
                         anyList()))
                 .thenReturn(0L);
 
-        lenient().when(vnPayService.createPaymentUrl(anyString(), anyDouble())).thenReturn("http://payment-url");
+        lenient().when(vnPayService.createPaymentUrl(anyString(),anyString(), anyDouble())).thenReturn("http://payment-url");
 
         // Act
         String result = ticketService.purchaseTicket(userId, request);

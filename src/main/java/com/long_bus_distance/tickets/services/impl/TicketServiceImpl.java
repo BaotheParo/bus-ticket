@@ -92,10 +92,13 @@ public class TicketServiceImpl implements TicketService {
             }
 
             // --- VÙNG AN TOÀN (CRITICAL SECTION) ---
-
+            String tripIdForLog = "";
             for (BookingSeatRequest seatReq : request.getBookingSeats()) {
                 Deck deck = deckRepository.getReferenceById(seatReq.getDeckId()); // Lấy ref cho nhanh
                 Trip trip = tripRepository.findById(seatReq.getTripId()).orElseThrow();
+                if (tripIdForLog.isEmpty()) {
+                    tripIdForLog = trip.getId().toString();
+                }
                 String fullSeat = deck.getLabel() + seatReq.getSelectedSeat();
 
                 // 4. DOUBLE CHECK DB (Kiểm tra xem ghế đã bán chưa)
@@ -127,7 +130,7 @@ public class TicketServiceImpl implements TicketService {
             // 6. Tạo URL thanh toán VNPay
             // Cần cập nhật VNPayService để nhận totalAmount và orderGroupId thay vì 1
             // ticket
-            String paymentUrl = vnPayService.createPaymentUrl(orderGroupId, totalAmount);
+            String paymentUrl = vnPayService.createPaymentUrl(orderGroupId, tripIdForLog ,totalAmount);
 
             return paymentUrl;
 
@@ -246,6 +249,7 @@ public class TicketServiceImpl implements TicketService {
 
         return ticketRepository.save(ticket);
     }
+
 
     @Override
     @Transactional
