@@ -87,7 +87,10 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         // Cho phép đúng domain React/Next.js của bạn
-        configuration.setAllowedOrigins(allowedOrigins);
+        //configuration.setAllowedOrigins(allowedOrigins);
+
+        // Cho phép tất cả các domain (dùng trong phát triển, không khuyến nghị trong production)
+        configuration.setAllowedOriginPatterns(List.of("*"));
 
         // Cho phép các method cần thiết
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
