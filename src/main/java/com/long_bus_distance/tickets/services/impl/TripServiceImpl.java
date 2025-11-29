@@ -202,7 +202,9 @@ public class TripServiceImpl implements TripService {
             for (int pos = 1; pos <= deck.getTotalSeats(); pos++) {
                 String position = String.valueOf(pos);
                 String fullSeat = deck.getLabel() + position;
-                long seatSold = ticketRepository.countByTripIdAndDeckIdAndSelectedSeat(tripId, deck.getId(), fullSeat);
+                long seatSold = ticketRepository.countByTripIdAndDeckIdAndSelectedSeatAndStatusIn(
+                        trip.getId(), deck.getId(), fullSeat,
+                        List.of(TicketStatusEnum.PURCHASED, TicketStatusEnum.PENDING_PAYMENT));
                 String status = seatSold > 0 ? "BOOKED" : "AVAILABLE";
                 seats.add(new SeatDto(position, status, seatPrice));
             }
