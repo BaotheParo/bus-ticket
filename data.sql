@@ -23,6 +23,15 @@ ADD COLUMN IF NOT EXISTS roles VARCHAR(255) NULL,
 ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true,
 ADD COLUMN IF NOT EXISTS managed_by_operator_id UUID NULL;
 
+ALTER TABLE ticket_validations
+    DROP CONSTRAINT ticket_validations_status_check;
+
+-- 2. Thêm constraint mới (nhớ liệt kê TẤT CẢ các trạng thái bạn cần, ví dụ dưới đây)
+ALTER TABLE ticket_validations
+    ADD CONSTRAINT ticket_validations_status_check
+        CHECK (status IN ('VALID', 'INVALID'));
+-- Hãy thay đổi list trên cho đúng với Enum trong Java của bạn
+
 -- Thêm bảng token_storage nếu chưa có (Hibernate có thể tự tạo, nhưng thêm cho chắc)
 CREATE TABLE IF NOT EXISTS token_storage (
     id UUID PRIMARY KEY,
@@ -73,8 +82,8 @@ ALTER TABLE users ALTER COLUMN roles SET NOT NULL;
 -- BẢNG TRIPS
 -- =================================================================
 INSERT INTO trips (id, route_name, departure_time, departure_point, arrival_time, destination, duration_minutes, bus_type_id, status, base_price, operator_id, created_at, updated_at, sales_start, sales_end) VALUES
-('7a7f7e7a-7e7e-7e7e-7e7e-7e7e7e7e7e7a', 'Sài Gòn - Đà Lạt', '2025-11-20 22:00:00', 'Bến xe Miền Đông', '2025-11-21 06:00:00', 'Bến xe Liên tỉnh Đà Lạt', 480, 'a3d1eb31-bbbc-4a0d-bb90-81bf4d660444', 'PUBLISHED', 350000, '8a8f8e8a-8e8e-8e8e-8e8e-8e8e8e8e8e8a', NOW(), NOW(), '2025-10-01 00:00:00', '2025-11-20 21:00:00'),
-('7b7f7e7a-7e7e-7e7e-7e7e-7e7e7e7e7e7b', 'Sài Gòn - Vũng Tàu', '2025-11-15 09:30:00', '266-268 Lê Hồng Phong', '2025-11-15 11:30:00', 'Bến xe Vũng Tàu', 120, '96ebadd3-64d6-4bcf-a966-38381e6ef642', 'PUBLISHED', 180000, '8b8f8e8a-8e8e-8e8e-8e8e-8e8e8e8e8e8b', NOW(), NOW(), '2025-10-01 00:00:00', '2025-11-15 08:30:00');
+('7a7f7e7a-7e7e-7e7e-7e7e-7e7e7e7e7e7a', 'Sài Gòn - Đà Lạt', '2025-11-20 22:00:00', 'Bến xe Miền Đông', '2025-11-21 06:00:00', 'Bến xe Liên tỉnh Đà Lạt', 480, '67a13024-9af5-4de8-89c5-b86a6ee17fbc', 'PUBLISHED', 350000, '8a8f8e8a-8e8e-8e8e-8e8e-8e8e8e8e8e8a', NOW(), NOW(), '2025-10-01 00:00:00', '2025-11-20 21:00:00'),
+('7b7f7e7a-7e7e-7e7e-7e7e-7e7e7e7e7e7b', 'Sài Gòn - Vũng Tàu', '2025-11-15 09:30:00', '266-268 Lê Hồng Phong', '2025-11-15 11:30:00', 'Bến xe Vũng Tàu', 120, '3ed77239-fd25-47c5-9039-42300157ca51', 'PUBLISHED', 180000, '8b8f8e8a-8e8e-8e8e-8e8e-8e8e8e8e8e8b', NOW(), NOW(), '2025-10-01 00:00:00', '2025-11-15 08:30:00');
 
 -- =================================================================
 -- BẢNG DECKS (Sử dụng UUID hợp lệ)

@@ -106,9 +106,9 @@ public class TicketValidationServiceImpl implements TicketValidationService {
 
         // Logic kiểm tra vé đã validate chưa và tạo bản ghi validation (giữ nguyên)
         boolean isFirstValidation = ticket.getValidations().stream()
-                .noneMatch(v -> v.getStatus() == TicketStatusEnum.PURCHASED);
+                .noneMatch(v -> v.getStatus() == TicketValidationStatusEnum.VALID);
 
-        TicketStatusEnum newStatus = isFirstValidation ? TicketStatusEnum.PURCHASED : TicketStatusEnum.CANCELLED;
+        TicketValidationStatusEnum newStatus = isFirstValidation ? TicketValidationStatusEnum.VALID : TicketValidationStatusEnum.INVALID;
         if (!isFirstValidation) {
             log.warn("Vé {} đã được xác thực trước đó. Validation lần này sẽ ghi nhận là CANCELLED.", ticket.getId());
         }
