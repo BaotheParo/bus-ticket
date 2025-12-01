@@ -21,4 +21,6 @@ public class ListPublishedTripResponseDto implements Serializable {
     private String destination;
     private Integer totalAvailableSeats;
     private Double basePrice;
+    private UUID operatorId;
+    private String operatorName;
 }

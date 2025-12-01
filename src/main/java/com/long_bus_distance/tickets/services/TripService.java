@@ -32,7 +32,7 @@ public interface TripService {
 
     Page<ListPublishedTripResponseDto> searchPublishedTrips(
             String departurePoint, String destination, String departureDateStr, int numTickets,
-            String timeSlot, String busType, String deckLabel, String routeName, Pageable pageable);
+            String timeSlot, String busType, String deckLabel, String routeName, String operatorId, Pageable pageable);
 
     Page<Trip> listAllTripsForAdmin(Pageable pageable);
 

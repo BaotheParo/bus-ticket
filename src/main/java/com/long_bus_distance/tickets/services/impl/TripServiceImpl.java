@@ -196,15 +196,13 @@ public class TripServiceImpl implements TripService {
         List<DeckWithSeatsDto> deckDtos = trip.getDecks().stream().map(deck -> {
             long sold = ticketRepository.countByDeckId(deck.getId());
             int remaining = deck.getTotalSeats() - (int) sold;
-            double seatPrice = trip.getBasePrice() * deck.getPriceFactor();
+            double seatPrice = trip.getBasePrice() * deck.getPriceFactor() / deck.getTotalSeats();
 
             List<SeatDto> seats = new ArrayList<>();
             for (int pos = 1; pos <= deck.getTotalSeats(); pos++) {
                 String position = String.valueOf(pos);
                 String fullSeat = deck.getLabel() + position;
-                long seatSold = ticketRepository.countByTripIdAndDeckIdAndSelectedSeatAndStatusIn(
-                        trip.getId(), deck.getId(), fullSeat,
-                        List.of(TicketStatusEnum.PURCHASED, TicketStatusEnum.PENDING_PAYMENT));
+                long seatSold = ticketRepository.countByTripIdAndDeckIdAndSelectedSeat(tripId, deck.getId(), fullSeat);
                 String status = seatSold > 0 ? "BOOKED" : "AVAILABLE";
                 seats.add(new SeatDto(position, status, seatPrice));
             }
@@ -219,15 +217,17 @@ public class TripServiceImpl implements TripService {
     @Override
     public Page<ListPublishedTripResponseDto> searchPublishedTrips(
             String departurePoint, String destination, String departureDateStr, int numTickets,
-            String timeSlot, String busType, String deckLabel, String routeName, Pageable pageable) {
+            String timeSlot, String busType, String deckLabel, String routeName, String operatorIdStr,
+            Pageable pageable) {
         log.info("CACHE MISS - Đang truy vấn Database để tìm chuyến xe...");
 
         boolean hasRouteName = routeName != null && !routeName.trim().isEmpty();
+        boolean hasOperator = operatorIdStr != null && !operatorIdStr.trim().isEmpty();
         boolean hasPrimaryParams = departurePoint != null && !departurePoint.trim().isEmpty() &&
                 destination != null && !destination.trim().isEmpty() &&
                 departureDateStr != null && !departureDateStr.trim().isEmpty();
 
-        if (!hasRouteName && !hasPrimaryParams) {
+        if (!hasRouteName && !hasOperator && !hasPrimaryParams) {
             return Page.empty(pageable);
         }
 
@@ -236,11 +236,19 @@ public class TripServiceImpl implements TripService {
             try {
                 departureDate = LocalDate.parse(departureDateStr);
             } catch (Exception e) {
-                // If date is invalid but we have routeName, ignore date? Or fail?
-                // If primary params are required but date is invalid -> empty.
-                // If routeName is present, we might proceed with null date.
-                if (!hasRouteName)
+                // If date is invalid but we have routeName or operator, ignore date?
+                if (!hasRouteName && !hasOperator)
                     return Page.empty(pageable);
+            }
+        }
+
+        UUID operatorId = null;
+        if (hasOperator) {
+            try {
+                operatorId = UUID.fromString(operatorIdStr);
+            } catch (Exception e) {
+                // Invalid UUID format
+                return Page.empty(pageable);
             }
         }
 
@@ -266,13 +274,13 @@ public class TripServiceImpl implements TripService {
             results = tripRepository.searchPublishedTripsFiltered(
                     departurePoint != null ? departurePoint.trim() : null,
                     destination != null ? destination.trim() : null,
-                    departureDate, numTickets, routeName,
+                    departureDate, numTickets, routeName, operatorId,
                     startHour, endHour, busTypesStr, deckLabelsStr, pageable);
         } else {
             results = tripRepository.searchPublishedTripsBase(
                     departurePoint != null ? departurePoint.trim() : null,
                     destination != null ? destination.trim() : null,
-                    departureDate, numTickets, routeName, pageable);
+                    departureDate, numTickets, routeName, operatorId, pageable);
         }
 
         return results.map(row -> {
@@ -288,6 +296,14 @@ public class TripServiceImpl implements TripService {
             }
             dto.setDestination((String) row[5]);
             dto.setTotalAvailableSeats(row[6] != null ? ((Number) row[6]).intValue() : 0);
+
+            // Map operator info (row[7] = operator_id, row[8] = operator_name)
+            if (row.length > 7 && row[7] != null) {
+                dto.setOperatorId((UUID) row[7]);
+            }
+            if (row.length > 8 && row[8] != null) {
+                dto.setOperatorName((String) row[8]);
+            }
 
             return dto;
         });

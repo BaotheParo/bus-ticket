@@ -33,18 +33,21 @@ public class PublishedTripController {
             @RequestParam(name = "busType", required = false) String busType,
             @RequestParam(name = "deckLabel", required = false) String deckLabel,
             @RequestParam(name = "routeName", required = false) String routeName,
+            @RequestParam(name = "operatorId", required = false) String operatorId,
             @RequestParam(name = "q", required = false) String query,
             Pageable pageable) {
 
         log.info("Search published trips: departurePoint={}, destination={}, date={}, numTickets={}, filters={}",
                 departurePoint, destination, departureDate, numTickets,
-                "timeSlot=" + timeSlot + ",busType=" + busType + ",deck=" + deckLabel + ",routeName=" + routeName);
+                "timeSlot=" + timeSlot + ",busType=" + busType + ",deck=" + deckLabel + ",routeName=" + routeName
+                        + ",operatorId=" + operatorId);
 
         Page<ListPublishedTripResponseDto> response;
-        if (departurePoint != null || destination != null || departureDate != null || routeName != null) {
-            // Primary search mode (now includes routeName as a trigger)
+        if (departurePoint != null || destination != null || departureDate != null || routeName != null
+                || operatorId != null) {
+            // Primary search mode (now includes routeName and operatorId as triggers)
             response = tripService.searchPublishedTrips(departurePoint, destination, departureDate, numTickets,
-                    timeSlot, busType, deckLabel, routeName, pageable);
+                    timeSlot, busType, deckLabel, routeName, operatorId, pageable);
         } else if (query != null && !query.trim().isEmpty()) {
             // Backward compat: Old simple search
             Page<Trip> trips = tripService.searchPublishedTrips(query, pageable);
