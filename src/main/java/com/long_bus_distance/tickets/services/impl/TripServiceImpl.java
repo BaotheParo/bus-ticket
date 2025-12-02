@@ -215,6 +215,7 @@ public class TripServiceImpl implements TripService {
     }
 
     @Override
+    @org.springframework.cache.annotation.Cacheable(value = "published_trips", key = "{#departurePoint, #destination, #departureDateStr, #numTickets, #timeSlot, #busType, #deckLabel, #routeName, #operatorIdStr, #pageable}")
     public Page<ListPublishedTripResponseDto> searchPublishedTrips(
             String departurePoint, String destination, String departureDateStr, int numTickets,
             String timeSlot, String busType, String deckLabel, String routeName, String operatorIdStr,

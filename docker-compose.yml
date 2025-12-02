@@ -54,12 +54,16 @@ services:
     ports:
       - "8082:8082"
     environment:
-      - REDIS_ADDR=redis:6379
-      - GEMINI_API_KEY=${GEMINI_API_KEY} # Reads from .env or shell environment
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=admin
+      - DB_PASSWORD=admin
+      - DB_NAME=busplatform_db
     networks:
       - busplatform_network
     depends_on:
-      - redis
+      - db
   # --------------------------
 
 volumes:

@@ -67,8 +67,8 @@ public class RedisConfig {
     static abstract class PageImplMixin<T> {
         @JsonCreator
         public PageImplMixin(@JsonProperty("content") List<T> content,
-                @JsonProperty("pageable") Pageable pageable,
-                @JsonProperty("totalElements") long total) {
+                             @JsonProperty("pageable") Pageable pageable,
+                             @JsonProperty("totalElements") long total) {
         }
     }
 
@@ -77,8 +77,8 @@ public class RedisConfig {
     static abstract class PageRequestMixin {
         @JsonCreator
         public PageRequestMixin(@JsonProperty("pageNumber") int page,
-                @JsonProperty("pageSize") int size,
-                @JsonProperty("sort") Sort sort) {
+                                @JsonProperty("pageSize") int size,
+                                @JsonProperty("sort") Sort sort) {
         }
     }
 
@@ -97,9 +97,9 @@ public class RedisConfig {
     static abstract class OrderMixin {
         @JsonCreator
         public OrderMixin(@JsonProperty("direction") Sort.Direction direction,
-                @JsonProperty("property") String property,
-                @JsonProperty("ignoreCase") boolean ignoreCase,
-                @JsonProperty("nullHandling") Sort.NullHandling nullHandling) {
+                          @JsonProperty("property") String property,
+                          @JsonProperty("ignoreCase") boolean ignoreCase,
+                          @JsonProperty("nullHandling") Sort.NullHandling nullHandling) {
         }
     }
 }
